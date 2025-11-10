@@ -21,9 +21,10 @@
             <Separator/>
             <Button Content="导出数据" MinWidth="60" Margin="2,0,2,0"/>
         </StackPanel>
-        <ScottPlot:WpfPlot Grid.Row="1" Height="auto" x:Name="WpfPlot1" />
+        <ScottPlot:WpfPlot Grid.Row="1" Height="auto" x:Name="MainPlot" />
         <StackPanel Grid.Row="2" Height="auto" Orientation="Horizontal" Margin="2">
-            <Label Content="等待连接"/>
+            <Label x:Name="ComportLabel" Content="等待连接"/>
+            <Label x:Name="dataCountLabel"/>
         </StackPanel>
     </Grid>
 </Window>
