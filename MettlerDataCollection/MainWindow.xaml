@@ -28,8 +28,8 @@
         <StackPanel Grid.Row="1" Orientation="Horizontal" Height="auto" Margin="2">
             <Button Content="开始采集" MinWidth="60" Margin="2,0,2,0" Click="Button_StartCollect"/>
             <Button Content="停止采集" MinWidth="60" Margin="2,0,2,0" Click="Button_StopCollect"/>
-            <Button Content="展示全部" MinWidth="60" Margin="2,0,2,0" Click="Button_ShowAllData"/>
-            <Button Content="展示最新" MinWidth="60" Margin="2,0,2,0" Click="Button_ShowNewestData"/>
+            <RadioButton GroupName="dataview" x:Name="showFull" IsChecked="True" Content="全部" VerticalAlignment="Center"/>
+            <RadioButton GroupName="dataview" x:Name="showSlide" Content="最新数据" VerticalAlignment="Center"/>
         </StackPanel>
         <ScottPlot:WpfPlot Grid.Row="2" Height="auto" x:Name="MainPlot" />
         <StackPanel Grid.Row="3" Height="auto" Orientation="Horizontal" Margin="2">

@@ -1,5 +1,4 @@
 ﻿using Microsoft.Win32;
-using Microsoft.Win32.SafeHandles;
 using ScottPlot.Plottables;
 using Serilog;
 using System.Collections.ObjectModel;
@@ -8,63 +7,67 @@ using System.IO;
 using System.IO.Ports;
 using System.Text;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+using System.Windows.Threading;
 
 namespace MettlerDataCollection
 {
-    /// <summary>
-    /// Interaction logic for MainWindow.xaml
-    /// </summary>
     public partial class MainWindow : Window
     {
         private ComPortWatcher _watcher;
-
-        
         private int _dataCount = 0;
         private bool _isCollecting = false;
+        object FileLock = new object();
+
+        public bool IsCollecting { get => _isCollecting; }
 
         DataLogger PhLogger;
         DataLogger ConductivityLogger;
         private DataRecord1? dataRecord1 = null;
+        DispatcherTimer timer = new DispatcherTimer();
 
-        string _dataBuffer = string.Empty;
-        private const char RecordDelimiter = '\n';
+        private readonly StringBuilder _receiveBuffer = new StringBuilder();
+        private const string RecordDelimiter = "\r\n";
+        private readonly object _bufferLock = new object();
 
         private string _selectedComport;
         public string SelectedComport
         {
-            get { return _selectedComport; }
-            set
-            {
-                _selectedComport = value;
-                // 可以在这里处理选中事件或触发通知
-            }
+            get => _selectedComport;
+            set => _selectedComport = value;
         }
 
-        public string LogFilePath = $"/log/{DateTime.Now.ToString("yyyyMMdd_HHmmss")}";
-
+        public string LogFilePath = $"./log/{DateTime.Now:yyyyMMdd_HHmmss}.txt";
         SerialPort serialPort = new SerialPort();
-        private object FileLock = new object();
 
         public MainWindow()
         {
             InitializeComponent();
-
             this.DataContext = this;
+
+            timer.Interval = TimeSpan.FromSeconds(1);
+            timer.Tick += Timer_Tick;
 
             _watcher = new ComPortWatcher();
             _watcher.ComPortsChanged += HandleComPortsChanged;
             _watcher.Start();
-
             HandleComPortsChanged(new List<string>(SerialPort.GetPortNames()));
 
+            CreateOriginDirectory();
+
+            InitPlot();
+            InitSerialPort();
+        }
+
+        private void CreateOriginDirectory()
+        {
+            if(!Directory.Exists("./origindata"))
+            {
+                Directory.CreateDirectory("./origindata");
+            }
+        }
+
+        private void InitPlot()
+        {
             MainPlot.Plot.XLabel("Time (s)");
             MainPlot.Plot.Axes.Bottom.TickLabelStyle.FontSize = 16;
 
@@ -87,23 +90,50 @@ namespace MettlerDataCollection
             PhLogger = MainPlot.Plot.Add.DataLogger();
             ConductivityLogger = MainPlot.Plot.Add.DataLogger();
             PhLogger.Color = ScottPlot.Colors.Red;
+            PhLogger.LineWidth = 2;
             ConductivityLogger.Color = ScottPlot.Colors.Blue;
+            ConductivityLogger.LineWidth = 2;
             PhLogger.Axes.YAxis = MainPlot.Plot.Axes.Left;
             ConductivityLogger.Axes.YAxis = MainPlot.Plot.Axes.Right;
 
-            serialPort.BaudRate = 9600;   // 波特率 (Baud Rate)
-            serialPort.DataBits = 8;      // 数据位 (Data Bits)
-            serialPort.Parity = Parity.None; // 奇偶校验 (Parity.None 表示无校验)
-            serialPort.StopBits = StopBits.One; // 停止位 (StopBits.One 表示 1 位)
-            serialPort.Handshake = Handshake.XOnXOff;
-            serialPort.DataReceived += SerialPort_DataReceived;
 
             MainPlot.Refresh();
         }
 
+        private void InitSerialPort()
+        {
+            serialPort.BaudRate = 9600;
+            serialPort.DataBits = 8;
+            serialPort.Parity = Parity.None;
+            serialPort.StopBits = StopBits.One;
+            serialPort.Handshake = Handshake.XOnXOff;
+            serialPort.DataReceived += SerialPort_DataReceived;
+            serialPort.ReceivedBytesThreshold = 1;
+        }
+
+        private void Timer_Tick(object? sender, EventArgs e)
+        {
+            if (PhLogger.HasNewData || ConductivityLogger.HasNewData)
+            {
+                if (this.showFull.IsChecked == true)
+                {
+                    PhLogger.ViewFull();
+                    ConductivityLogger.ViewFull();
+                }
+                else if (this.showSlide.IsChecked == true)
+                {
+                    PhLogger.ViewSlide(100);
+                    ConductivityLogger.ViewSlide(100);
+                }
+                
+                MainPlot.Refresh();
+            }
+                
+        }
+
         private void HandleComPortsChanged(List<string> list)
         {
-            this.Dispatcher.Invoke(() =>
+            Dispatcher.Invoke(() =>
             {
                 ComportCombox.ItemsSource = new ObservableCollection<string>(list);
             });
@@ -111,87 +141,80 @@ namespace MettlerDataCollection
 
         private void SerialPort_DataReceived(object sender, SerialDataReceivedEventArgs e)
         {
-            if (!_isCollecting)
-            {
-                return;
-            }
+            if (!_isCollecting) return;
 
-            Dispatcher.Invoke(() =>
+            try
             {
-                try
+                string newData = serialPort.ReadExisting();
+
+                lock (_bufferLock)
                 {
-                    // 读取所有现有数据并追加到缓冲区
-                    _dataBuffer += serialPort.ReadExisting();
+                    _receiveBuffer.Append(newData);
 
-                    // 检查缓冲区中是否包含结束符
-                    if (_dataBuffer.Contains(RecordDelimiter))
+                    string bufferStr = _receiveBuffer.ToString();
+                    int delimiterIndex;
+
+                    // 不断查找完整的记录
+                    while ((delimiterIndex = bufferStr.IndexOf(RecordDelimiter)) >= 0)
                     {
-                        // 分割出完整的记录
-                        string[] records = _dataBuffer.Split(new char[] { RecordDelimiter }, StringSplitOptions.RemoveEmptyEntries);
+                        string completeRecord = bufferStr[..delimiterIndex].Trim();
+                        bufferStr = bufferStr[(delimiterIndex + RecordDelimiter.Length)..];
 
-                        // 最后一块通常是不完整的，留给下次接收
-                        // 如果最后一块不包含结束符，它就是下一轮的开始
-                        _dataBuffer = records.LastOrDefault() ?? string.Empty;
-
-                        // 处理所有完整的记录
-                        for (int i = 0; i < records.Length - 1; i++) // 处理除最后一块之外的所有记录
+                        if (!string.IsNullOrEmpty(completeRecord))
                         {
-                            string completeRecord = records[i].Trim();
-
-                            if (!string.IsNullOrEmpty(completeRecord))
-                            {
-                                // ！！！ 在这里调用您的解析函数 ！！！
-                                ProcessCompleteRecord(completeRecord);
-                            }
+                            // 在 UI 线程处理完整记录
+                            Dispatcher.BeginInvoke(() => ProcessCompleteRecord(completeRecord));
+                            WriteDataToFile(completeRecord);
                         }
                     }
+
+                    // 剩下不完整的数据保留
+                    _receiveBuffer.Clear();
+                    _receiveBuffer.Append(bufferStr);
                 }
-                catch (Exception ex)
-                {
-                    // 忽略或记录读取错误
-                }
-            });
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"串口接收错误: {ex.Message}");
+            }
         }
 
         private void ProcessCompleteRecord(string completeRecord)
         {
-            WriteDataToFile(completeRecord);
-            int time = 0;
-            double pHValue = 0;
-            double conductivityValue = 0;
-            string[] parts = completeRecord.Split(' ');
-            if (parts.Length < 3)
+            try
             {
-                return;
-            }
-            
-            if (parts[1] == "1")
-            {
-                time = int.TryParse(parts[0].Replace("s",""), out int t) ? t : 0;
-                pHValue = double.TryParse(parts[2], out double pH) ? pH : 0;
-                if (dataRecord1 == null && pHValue != 0)
+                string[] parts = completeRecord.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                if (parts.Length < 2)
+                    return;
+
+                if (parts.Length >= 3 && parts[1] == "1")
                 {
-                    dataRecord1 = new DataRecord1
+                    int time = int.TryParse(parts[0].Replace("s", ""), out int t) ? t : 0;
+                    double pHValue = double.TryParse(parts[2], out double pH) ? pH : 0;
+                    if (dataRecord1 == null && pHValue != 0)
                     {
-                        Time = time,
-                        PHValue = pHValue
-                    };
+                        dataRecord1 = new DataRecord1 { Time = time, PHValue = pHValue };
+                    }
                 }
-            }
-            if (parts[0] == "2")
-            {
-                conductivityValue = double.TryParse(parts[1], out double cond) ? cond : 0;
-                if (dataRecord1 is not null && conductivityValue != 0)
+                else if (parts[0] == "2" && parts.Length >= 2)
                 {
-                    PhLogger.Add(dataRecord1.Time, dataRecord1.PHValue);
-                    ConductivityLogger.Add(dataRecord1.Time, conductivityValue);
-                    _dataCount++;
-                    this.dataCountLabel.Content = $"已接收数据: {_dataCount}个";
-                    dataRecord1 = null;
-                    MainPlot.Refresh();
+                    double conductivityValue = double.TryParse(parts[1], out double cond) ? cond : 0;
+                    if (dataRecord1 != null && conductivityValue != 0)
+                    {
+                        PhLogger.Add(dataRecord1.Time, dataRecord1.PHValue);
+                        PhLogger.LegendText = $"Current pH: {dataRecord1.PHValue}";
+                        ConductivityLogger.Add(dataRecord1.Time, conductivityValue);
+                        ConductivityLogger.LegendText = $"Current Cond: {conductivityValue}";
+                        _dataCount++;
+                        dataCountLabel.Content = $"已接收数据: {_dataCount}个";
+                        dataRecord1 = null;
+                    }
                 }
             }
-            
+            catch (Exception ex)
+            {
+                Log.Error($"数据解析异常: {ex.Message}");
+            }
         }
 
         private void WriteDataToFile(string completeRecord)
@@ -226,47 +249,79 @@ namespace MettlerDataCollection
 
         private void Button_OpenPort(object sender, RoutedEventArgs e)
         {
-            if (serialPort.IsOpen)
-            {
-                return;
-            }
+            if (serialPort.IsOpen) return;
             serialPort.PortName = SelectedComport;
 
             try
             {
                 serialPort.Open();
-                this.ComportLabel.Content = $"串口{SelectedComport}已连接。";
+                ComportLabel.Content = $"串口{SelectedComport}已连接。";
                 Log.Information($"串口 {SelectedComport} 已打开。");
-                this.ComportCombox.IsEnabled = false;
+                ComportCombox.IsEnabled = false;
             }
             catch (Exception ex)
             {
-                Log.Error($"打开串口 {SelectedComport} 时发生错误: {ex.Message}");
-                this.ComportLabel.Content = $"错误：无法打开串口。请检查端口号是否正确或是否已被占用。详细信息: {ex.Message}";
-                return;
+                Log.Error($"打开串口失败: {ex.Message}");
+                ComportLabel.Content = $"错误：无法打开串口。{ex.Message}";
             }
         }
 
-
         private void Button_ClosePort(object sender, RoutedEventArgs e)
         {
-            if (!serialPort.IsOpen)
-            {
-                return;
-            }
+            if (!serialPort.IsOpen) return;
+
             try
             {
                 serialPort.Close();
-                this.ComportLabel.Content = $"串口{SelectedComport}已断开。";
+                ComportLabel.Content = $"串口{SelectedComport}已断开。";
+                ComportCombox.IsEnabled = true;
                 Log.Information($"串口 {SelectedComport} 已关闭。");
-                this.ComportCombox.IsEnabled = true;
             }
             catch (Exception ex)
             {
-                Log.Error($"关闭串口 {SelectedComport} 时发生错误: {ex.Message}");
-                this.ComportLabel.Content = $"错误：无法关闭串口。详细信息: {ex.Message}";
+                Log.Error($"关闭串口失败: {ex.Message}");
+                ComportLabel.Content = $"错误：无法关闭串口。{ex.Message}";
+            }
+        }
+
+        private void Button_StartCollect(object sender, RoutedEventArgs e)
+        {
+            if (!serialPort.IsOpen)
+            {
+                MessageBox.Show("请先连接串口！");
                 return;
             }
+
+            if (MessageBox.Show("旧数据将被清除", "数据采集", MessageBoxButton.YesNo, MessageBoxImage.Warning)
+                == MessageBoxResult.No)
+                return;
+
+            PhLogger.Clear();
+            ConductivityLogger.Clear();
+            timer.Start();
+            LogFilePath = $"./origindata/{DateTime.Now:yyyyMMdd_HHmmss}.txt";
+            MainPlot.Refresh();
+            _dataCount = 0;
+            _isCollecting = true;
+        }
+
+        private void Button_StopCollect(object sender, RoutedEventArgs e)
+        {
+            _isCollecting = false;
+            MessageBox.Show("数据采集已停止","数据采集",MessageBoxButton.OK,MessageBoxImage.Information);
+            timer.Stop();
+        }
+
+
+        private void MainWindow_Closing(object sender, CancelEventArgs e)
+        {
+            if (MessageBox.Show("未导出的数据可能丢失", "确认退出",
+                MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+            {
+                e.Cancel = true;
+                return;
+            }
+            Log.Information("应用程序关闭。");
         }
 
         private void Button_ExportData(object sender, RoutedEventArgs e)
@@ -299,7 +354,7 @@ namespace MettlerDataCollection
                 // 获取用户选择的文件路径（包含文件名）
                 string filename = saveFileDialog.FileName;
 
-                if(PhLogger.Data.Coordinates.Count != ConductivityLogger.Data.Coordinates.Count || PhLogger.Data.Coordinates.Count == 0)
+                if (PhLogger.Data.Coordinates.Count != ConductivityLogger.Data.Coordinates.Count || PhLogger.Data.Coordinates.Count == 0)
                 {
                     System.IO.File.WriteAllText(filename, contentString.ToString(), Encoding.UTF8);
                     return;
@@ -324,74 +379,8 @@ namespace MettlerDataCollection
                     MessageBox.Show("导出数据时发生错误，请重试。");
                     Log.Error($"导出数据到文件 {filename} 时发生错误。{ex.Message}");
                 }
-                
+
             }
-        }
-
-        private void MainWindow_Closing(object sender, CancelEventArgs e)
-        {
-            // 弹出提示框，询问用户是否确定退出
-            MessageBoxResult result = MessageBox.Show(
-                "未导出的数据可能丢失",
-                "确认退出",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Question);
-
-            // 根据用户选择决定是否取消关闭
-            if (result == MessageBoxResult.Yes)
-            {
-                Log.Information("应用程序关闭。");
-                // 用户选择“是”，继续关闭程序
-                e.Cancel = false;
-            }
-            else
-            {
-                // 用户选择“否”，取消关闭操作
-                e.Cancel = true;
-            }
-        }
-
-        private void Button_StartCollect(object sender, RoutedEventArgs e)
-        {
-            if (!serialPort.IsOpen)
-            {
-                MessageBox.Show("请先连接串口！");
-                return;
-            }
-            MessageBoxResult result = MessageBox.Show(
-                "当前数据将被清除",
-                "确认",
-                MessageBoxButton.YesNo,
-                MessageBoxImage.Warning);
-            if (result == MessageBoxResult.No)
-            {
-                return;
-            }
-            PhLogger.Clear();
-            ConductivityLogger.Clear();
-            Log.Debug("开始采集数据。");
-            LogFilePath = $"/origindata/{DateTime.Now.ToString("yyyyMMdd_HHmmss")}.txt";
-            MainPlot.Refresh();
-            _dataCount = 0;
-            _isCollecting = true;
-        }
-
-        private void Button_StopCollect(object sender, RoutedEventArgs e)
-        {
-            Log.Debug("停止采集数据。");
-            _isCollecting = false;
-        }
-
-        private void Button_ShowAllData(object sender, RoutedEventArgs e)
-        {
-            PhLogger.ViewFull();
-            ConductivityLogger.ViewFull();
-        }
-
-        private void Button_ShowNewestData(object sender, RoutedEventArgs e)
-        {
-            PhLogger.ViewSlide(100);
-            ConductivityLogger.ViewSlide(100);
         }
     }
 
@@ -399,11 +388,10 @@ namespace MettlerDataCollection
     {
         public int Time { get; set; }
         public double PHValue { get; set; }
-        public double TemperatureValue { get; set; }
     }
+
     public class DataRecord2
     {
         public double ConductivityValue { get; set; }
-        public double TemperatureValue { get; set; }
     }
 }
