@@ -15,8 +15,7 @@
         <StackPanel Grid.Row="0" Orientation="Horizontal" Height="auto" Margin="2">
             <TextBlock Text="选择一个端口: " VerticalAlignment="Center"/>
             <ComboBox x:Name="ComportCombox" SelectedItem="{Binding SelectedComport, Mode=TwoWay}" Width="200" 
-              HorizontalAlignment="Left" 
-              SelectedIndex="0">
+              HorizontalAlignment="Left" >
             </ComboBox>
             <Button Content="连接" MinWidth="60" Margin="2,0,2,0" Click="Button_OpenPort"/>
             <Button Content="断开" MinWidth="60" Margin="2,0,2,0" Click="Button_ClosePort"/>

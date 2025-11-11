@@ -57,6 +57,8 @@ namespace MettlerDataCollection
         {
             InitializeComponent();
 
+            this.DataContext = this;
+
             _watcher = new ComPortWatcher();
             _watcher.ComPortsChanged += HandleComPortsChanged;
             _watcher.Start();
@@ -235,6 +237,7 @@ namespace MettlerDataCollection
                 serialPort.Open();
                 this.ComportLabel.Content = $"串口{SelectedComport}已连接。";
                 Log.Information($"串口 {SelectedComport} 已打开。");
+                this.ComportCombox.IsEnabled = false;
             }
             catch (Exception ex)
             {
@@ -256,6 +259,7 @@ namespace MettlerDataCollection
                 serialPort.Close();
                 this.ComportLabel.Content = $"串口{SelectedComport}已断开。";
                 Log.Information($"串口 {SelectedComport} 已关闭。");
+                this.ComportCombox.IsEnabled = true;
             }
             catch (Exception ex)
             {
