@@ -292,7 +292,7 @@ namespace MettlerDataCollection
                 return;
             }
 
-            if (MessageBox.Show("旧数据将被清除", "数据采集", MessageBoxButton.YesNo, MessageBoxImage.Warning)
+            if (MessageBox.Show("旧数据将被清除，是否继续？", "数据采集", MessageBoxButton.YesNo, MessageBoxImage.Warning)
                 == MessageBoxResult.No)
                 return;
 
@@ -303,11 +303,13 @@ namespace MettlerDataCollection
             MainPlot.Refresh();
             _dataCount = 0;
             _isCollecting = true;
+            Log.Information("数据采集开始。");
         }
 
         private void Button_StopCollect(object sender, RoutedEventArgs e)
         {
             _isCollecting = false;
+            Log.Information("数据采集停止。");
             MessageBox.Show("数据采集已停止","数据采集",MessageBoxButton.OK,MessageBoxImage.Information);
             timer.Stop();
         }
@@ -316,7 +318,7 @@ namespace MettlerDataCollection
         private void MainWindow_Closing(object sender, CancelEventArgs e)
         {
             if (MessageBox.Show("未导出的数据可能丢失", "确认退出",
-                MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes)
+                MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
             {
                 e.Cancel = true;
                 return;
@@ -376,7 +378,7 @@ namespace MettlerDataCollection
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show("导出数据时发生错误，请重试。");
+                    MessageBox.Show($"导出数据时发生错误，请重试。{ex.Message}");
                     Log.Error($"导出数据到文件 {filename} 时发生错误。{ex.Message}");
                 }
 
@@ -388,10 +390,5 @@ namespace MettlerDataCollection
     {
         public int Time { get; set; }
         public double PHValue { get; set; }
-    }
-
-    public class DataRecord2
-    {
-        public double ConductivityValue { get; set; }
     }
 }
