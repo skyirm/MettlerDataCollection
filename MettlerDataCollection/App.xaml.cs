@@ -21,9 +21,18 @@ namespace MettlerDataCollection
                 .CreateLogger();
 
             Log.Information("应用程序已启动。");
-
+            PowerManagement.PreventSleepAndDisplayTurnOff(); // 启动时阻止睡眠和关闭屏幕
             base.OnStartup(e);
             // 在应用程序启动时执行的代码
+        }
+
+        protected override void OnExit(ExitEventArgs e)
+        {
+            Log.Information("应用程序即将退出。");
+            Log.CloseAndFlush(); // 确保所有日志都已写入
+            PowerManagement.AllowSleepAndDisplayTurnOff(); // 退出时恢复电源管理设置
+            base.OnExit(e);
+            // 在应用程序退出时执行的代码
         }
     }
 

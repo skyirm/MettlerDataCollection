@@ -87,6 +87,9 @@ namespace MettlerDataCollection
             MainPlot.Plot.Axes.Right.MinorTickStyle.Color = ScottPlot.Colors.Blue;
             MainPlot.Plot.Axes.Right.TickLabelStyle.ForeColor = ScottPlot.Colors.Blue;
 
+            MainPlot.Plot.Legend.FontSize = 16;
+            
+
             PhLogger = MainPlot.Plot.Add.DataLogger();
             ConductivityLogger = MainPlot.Plot.Add.DataLogger();
             PhLogger.Color = ScottPlot.Colors.Red;
@@ -95,6 +98,8 @@ namespace MettlerDataCollection
             ConductivityLogger.LineWidth = 2;
             PhLogger.Axes.YAxis = MainPlot.Plot.Axes.Left;
             ConductivityLogger.Axes.YAxis = MainPlot.Plot.Axes.Right;
+            PhLogger.LegendText = $"Current pH: 0";
+            ConductivityLogger.LegendText = $"Current Cond: 0";
 
 
             MainPlot.Refresh();
@@ -122,8 +127,8 @@ namespace MettlerDataCollection
                 }
                 else if (this.showSlide.IsChecked == true)
                 {
-                    PhLogger.ViewSlide(100);
-                    ConductivityLogger.ViewSlide(100);
+                    PhLogger.ViewSlide();
+                    ConductivityLogger.ViewSlide();
                 }
                 
                 MainPlot.Refresh();
@@ -292,12 +297,53 @@ namespace MettlerDataCollection
                 return;
             }
 
-            if (MessageBox.Show("旧数据将被清除，是否继续？", "数据采集", MessageBoxButton.YesNo, MessageBoxImage.Warning)
+            if (MessageBox.Show("开始采集前确保设备已停止实验，旧数据将被清除，是否继续？", "数据采集", MessageBoxButton.YesNo, MessageBoxImage.Warning)
                 == MessageBoxResult.No)
                 return;
 
+            try
+            {
+                // === 1️⃣ 清理串口残留数据 ===
+                serialPort.DiscardOutBuffer(); // 清发送缓冲
+                string remainingData = string.Empty;
+
+                // 尝试读取残留接收缓冲区
+                if (serialPort.BytesToRead > 0)
+                {
+                    remainingData = serialPort.ReadExisting();
+                }
+
+                // 如果还有内存缓冲里的数据
+                lock (_bufferLock)
+                {
+                    if (_receiveBuffer.Length > 0)
+                    {
+                        remainingData += _receiveBuffer.ToString();
+                        _receiveBuffer.Clear();
+                    }
+                }
+
+                // 如果有未处理的数据，写入硬盘保存
+                if (!string.IsNullOrWhiteSpace(remainingData))
+                {
+                    string[] records = remainingData.Split(new string[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
+                    foreach (var record in records)
+                    {
+                        string trimmed = record.Trim();
+                        if (!string.IsNullOrEmpty(trimmed))
+                            WriteDataToFile(trimmed);
+                    }
+                    Log.Information("已保存停止期间积累的残留数据。");
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"清空串口残留数据时发生错误: {ex.Message}");
+            }
+
             PhLogger.Clear();
             ConductivityLogger.Clear();
+            dataCountLabel.Content = $"已接收数据: 0个";
             timer.Start();
             LogFilePath = $"./origindata/{DateTime.Now:yyyyMMdd_HHmmss}.txt";
             MainPlot.Refresh();
@@ -323,7 +369,6 @@ namespace MettlerDataCollection
                 e.Cancel = true;
                 return;
             }
-            Log.Information("应用程序关闭。");
         }
 
         private void Button_ExportData(object sender, RoutedEventArgs e)

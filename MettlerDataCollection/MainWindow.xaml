@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:ScottPlot="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF"
-        Title="梅特勒数据采集" Height="450" Width="800"
+        Title="梅特勒数据采集" Height="450" Width="1000" MinWidth="1000"
         Closing="MainWindow_Closing">
 
     <Grid>
@@ -12,7 +12,20 @@
             <RowDefinition/>
             <RowDefinition Height="auto"/>
         </Grid.RowDefinitions>
-        <StackPanel Grid.Row="0" Orientation="Horizontal" Height="auto" Margin="2,0,2,0" Background="LightGray">
+        <Menu Grid.Row="0" VerticalAlignment="Top">
+            <MenuItem Header="文件">
+                <MenuItem Header="读取历史数据"/>
+                <MenuItem Header="提取历史数据"/>
+            </MenuItem>
+            <MenuItem Header="设置">
+                <MenuItem Header="端口设置"/>
+                <MenuItem Header="采集设置"/>
+            </MenuItem>
+            <MenuItem Header="帮助">
+                <MenuItem Header="关于"/>
+            </MenuItem>
+        </Menu>
+        <StackPanel Grid.Row="1" Orientation="Horizontal" Height="auto" Margin="2">
             <TextBlock Text="选择一个端口: " VerticalAlignment="Center"/>
             <ComboBox x:Name="ComportCombox" SelectedItem="{Binding SelectedComport, Mode=TwoWay}" Width="200" 
               HorizontalAlignment="Left" >
@@ -23,17 +36,21 @@
                 Background="Gray" 
                 Margin="2,2" 
                 VerticalAlignment="Stretch"/>
-            
-        </StackPanel>
-        <StackPanel Grid.Row="1" Orientation="Horizontal" Height="auto" Margin="2,0,2,0" VerticalAlignment="Center" Background="LightGray">
-            <Button Content="开始采集" MinWidth="60" Margin="2,1,2,1" Click="Button_StartCollect"/>
-            <Button Content="停止采集" MinWidth="60" Margin="2,1,2,1" Click="Button_StopCollect"/>
+            <Label Content="采集模式"/>
+            <ComboBox Name="CollectModeCombox" Width="95" Margin="2,0,2,0" VerticalAlignment="Center">
+                <ComboBoxItem Content="pH+电导率" IsSelected="True"/>
+                <ComboBoxItem Content="pH"/>
+                <ComboBoxItem Content="电导率"/>
+
+            </ComboBox>
+            <Button Content="开始采集" MinWidth="60" Margin="2,0,2,0" Click="Button_StartCollect"/>
+            <Button Content="停止采集" MinWidth="60" Margin="2,0,2,0" Click="Button_StopCollect"/>
             <Border Width="1" Background="Gray" Margin="2,2" VerticalAlignment="Stretch"/>
             <Label Content="数据展示方式"/>
             <RadioButton GroupName="dataview" x:Name="showFull" IsChecked="True" Content="全部" Margin="2,0,2,0" VerticalAlignment="Center"/>
-            <RadioButton GroupName="dataview" x:Name="showSlide" Content="100个最新数据" Margin="2,0,2,0" VerticalAlignment="Center"/>
+            <RadioButton GroupName="dataview" x:Name="showSlide" Content="最新" Margin="2,0,2,0" VerticalAlignment="Center"/>
             <Border Width="1" Background="Gray" Margin="2,2" VerticalAlignment="Stretch"/>
-            <Button Content="导出数据" MinWidth="60" Margin="2,1,2,1" Click="Button_ExportData"/>
+            <Button Content="导出数据" MinWidth="60" Margin="2,0,2,0" Click="Button_ExportData"/>
         </StackPanel>
         <ScottPlot:WpfPlot Grid.Row="2" Height="auto" x:Name="MainPlot" />
         <StackPanel Grid.Row="3" Height="auto" Orientation="Horizontal" Margin="2">
