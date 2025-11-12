@@ -39,6 +39,8 @@ namespace MettlerDataCollection
         public string LogFilePath = $"./log/{DateTime.Now:yyyyMMdd_HHmmss}.txt";
         SerialPort serialPort = new SerialPort();
 
+        private CollectMode _currentMode = CollectMode.PH_AND_COND;
+
         public MainWindow()
         {
             InitializeComponent();
@@ -188,6 +190,51 @@ namespace MettlerDataCollection
         {
             try
             {
+                switch (_currentMode)
+                {
+                    case CollectMode.PH_AND_COND:
+                        ProcessPhAndCondRecord(completeRecord);
+                        break;
+                    case CollectMode.PH_ONLY:
+                        ProcessPhRecord(completeRecord);
+                        break;
+                    case CollectMode.COND_ONLY:
+                        ProcessCondRecord(completeRecord);
+                        break;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"数据解析异常: {ex.Message}");
+            }
+        }
+
+        private void ProcessCondRecord(string completeRecord)
+        {
+            throw new NotImplementedException();
+            int CondValue = 0;
+            double time = _dataCount;
+            ConductivityLogger.Add(time, CondValue);
+            ConductivityLogger.LegendText = $"Current Cond: {CondValue}";
+            _dataCount++;
+            dataCountLabel.Content = $"已接收数据: {_dataCount}个";
+        }
+
+        private void ProcessPhRecord(string completeRecord)
+        {
+            throw new NotImplementedException();
+            int pHValue = 0;
+            double time = _dataCount; 
+            PhLogger.Add(time, pHValue);
+            PhLogger.LegendText = $"Current pH: {pHValue}";
+            _dataCount++;
+            dataCountLabel.Content = $"已接收数据: {_dataCount}个";
+        }
+
+        private void ProcessPhAndCondRecord(string completeRecord)
+        {
+            try
+            {
                 string[] parts = completeRecord.Split(' ', StringSplitOptions.RemoveEmptyEntries);
                 if (parts.Length < 2)
                     return;
@@ -255,6 +302,11 @@ namespace MettlerDataCollection
         private void Button_OpenPort(object sender, RoutedEventArgs e)
         {
             if (serialPort.IsOpen) return;
+            if (string.IsNullOrEmpty(SelectedComport))
+            {
+                MessageBox.Show("请选择一个串口！");
+                return;
+            }
             serialPort.PortName = SelectedComport;
 
             try
@@ -300,6 +352,19 @@ namespace MettlerDataCollection
             if (MessageBox.Show("开始采集前确保设备已停止实验，旧数据将被清除，是否继续？", "数据采集", MessageBoxButton.YesNo, MessageBoxImage.Warning)
                 == MessageBoxResult.No)
                 return;
+
+            if (CollectModeCombox.SelectedIndex == 0)
+            {
+                _currentMode = CollectMode.PH_AND_COND;
+            }
+            else if (CollectModeCombox.SelectedIndex == 1)
+            {
+                _currentMode = CollectMode.PH_ONLY;
+            }
+            else if (CollectModeCombox.SelectedIndex == 2)
+            {
+                _currentMode = CollectMode.COND_ONLY;
+            }
 
             try
             {
@@ -429,8 +494,20 @@ namespace MettlerDataCollection
 
             }
         }
+
+        private void Button_OpenTestPage(object sender, RoutedEventArgs e)
+        {
+            var testWindow = new TestConnection();
+            testWindow.ShowDialog();
+        }
     }
 
+    public enum CollectMode
+    {
+        PH_AND_COND,
+        PH_ONLY,
+        COND_ONLY
+    }
     public class DataRecord1
     {
         public int Time { get; set; }

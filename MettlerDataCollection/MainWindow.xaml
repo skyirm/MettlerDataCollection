@@ -17,6 +17,7 @@
                 <MenuItem Header="读取历史数据"/>
                 <MenuItem Header="提取历史数据"/>
             </MenuItem>
+            <MenuItem Header="测试连接" Click="Button_OpenTestPage"></MenuItem>
             <MenuItem Header="设置">
                 <MenuItem Header="端口设置"/>
                 <MenuItem Header="采集设置"/>
