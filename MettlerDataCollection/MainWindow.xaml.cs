@@ -360,7 +360,7 @@ namespace MettlerDataCollection
                 return;
             }
             SampleNo = inputSampleDialog.InputText;
-            this.SampleNoLabel.Content = $"样本编号: {SampleNo}";
+            this.SampleNoLabel.Content = $"样品编号: {SampleNo}";
 
 
             if (CollectModeCombox.SelectedIndex == 0)
