@@ -27,7 +27,7 @@ namespace MettlerDataCollection
 
         private void OnLinkClick(object sender, MouseButtonEventArgs e)
         {
-            var url = "https://github.com/yourname/MettlerDataCollector";
+            var url = "https://github.com/skyirm/MettlerDataCollection";
             try
             {
                 Process.Start(new ProcessStartInfo
