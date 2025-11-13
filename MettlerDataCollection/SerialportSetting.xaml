@@ -19,11 +19,11 @@
             <StackPanel Orientation="Horizontal" Margin="0,5">
                 <TextBlock Text="波特率：" Width="100" VerticalAlignment="Center"/>
                 <ComboBox x:Name="BaudRateBox" Width="200">
+                    <ComboBoxItem Content="1200"/>
+                    <ComboBoxItem Content="2400"/>
+                    <ComboBoxItem Content="4800"/>
                     <ComboBoxItem Content="9600"/>
                     <ComboBoxItem Content="19200"/>
-                    <ComboBoxItem Content="38400"/>
-                    <ComboBoxItem Content="57600"/>
-                    <ComboBoxItem Content="115200"/>
                 </ComboBox>
             </StackPanel>
 

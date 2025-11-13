@@ -211,9 +211,11 @@ namespace MettlerDataCollection
 
         private void ProcessCondRecord(string completeRecord)
         {
-            throw new NotImplementedException();
-            int CondValue = 0;
-            double time = _dataCount;
+            string[] parts = completeRecord.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length < 2)
+                return;
+            int time = int.TryParse(parts[0].Replace("s", ""), out int _t) ? _t : 0;
+            double CondValue = double.TryParse(parts[1], out double cond) ? cond : 0;
             ConductivityLogger.Add(time, CondValue);
             ConductivityLogger.LegendText = $"Current Cond: {CondValue}";
             _dataCount++;
@@ -222,9 +224,11 @@ namespace MettlerDataCollection
 
         private void ProcessPhRecord(string completeRecord)
         {
-            throw new NotImplementedException();
-            int pHValue = 0;
-            double time = _dataCount; 
+            string[] parts = completeRecord.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length < 2)
+                return;
+            int time = int.TryParse(parts[0].Replace("s", ""), out int _t) ? _t : 0;
+            double pHValue = double.TryParse(parts[1], out double pH) ? pH : 0;
             PhLogger.Add(time, pHValue);
             PhLogger.LegendText = $"Current pH: {pHValue}";
             _dataCount++;
