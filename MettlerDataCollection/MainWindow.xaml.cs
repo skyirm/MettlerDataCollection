@@ -19,8 +19,6 @@ namespace MettlerDataCollection
         object FileLock = new object();
         private string SampleNo = string.Empty;
 
-        public bool IsCollecting { get => _isCollecting; }
-
         DataLogger PhLogger;
         DataLogger ConductivityLogger;
         private DataRecord1? dataRecord1 = null;
@@ -130,8 +128,8 @@ namespace MettlerDataCollection
                 }
                 else if (this.showSlide.IsChecked == true)
                 {
-                    PhLogger.ViewSlide();
-                    ConductivityLogger.ViewSlide();
+                    PhLogger.ViewSlide(20);
+                    ConductivityLogger.ViewSlide(20);
                 }
                 
                 MainPlot.Refresh();
@@ -149,8 +147,6 @@ namespace MettlerDataCollection
 
         private void SerialPort_DataReceived(object sender, SerialDataReceivedEventArgs e)
         {
-            if (!_isCollecting) return;
-
             try
             {
                 string newData = serialPort.ReadExisting();
@@ -171,7 +167,7 @@ namespace MettlerDataCollection
                         if (!string.IsNullOrEmpty(completeRecord))
                         {
                             // 在 UI 线程处理完整记录
-                            Dispatcher.BeginInvoke(() => ProcessCompleteRecord(completeRecord));
+                            if(_isCollecting) Dispatcher.BeginInvoke(() => ProcessCompleteRecord(completeRecord));
                             WriteDataToFile(completeRecord);
                         }
                     }
@@ -317,6 +313,7 @@ namespace MettlerDataCollection
             try
             {
                 serialPort.Open();
+                LogFilePath = $"./origindata/{DateTime.Now:yyyyMMdd_HHmmss}.txt";
                 ComportLabel.Content = $"串口{SelectedComport}已连接。";
                 Log.Information($"串口 {SelectedComport} 已打开。");
                 ComportCombox.IsEnabled = false;
@@ -457,7 +454,6 @@ namespace MettlerDataCollection
 
             // **配置属性**
             var contentString = new StringBuilder();
-            contentString.AppendLine("Time(s),pH,Conductivity(µS/cm)");
 
             // 1. 设置默认的文件名
             saveFileDialog.FileName = SampleNo;
@@ -481,18 +477,37 @@ namespace MettlerDataCollection
                 // 获取用户选择的文件路径（包含文件名）
                 string filename = saveFileDialog.FileName;
 
-                if (PhLogger.Data.Coordinates.Count != ConductivityLogger.Data.Coordinates.Count || PhLogger.Data.Coordinates.Count == 0)
+                switch (_currentMode)
                 {
-                    System.IO.File.WriteAllText(filename, contentString.ToString(), Encoding.UTF8);
-                    return;
-                }
-                foreach (var record in PhLogger.Data.Coordinates)
-                {
-                    var time = record.X;
-                    var pH = record.Y;
-                    var conductivityRecord = ConductivityLogger.Data.Coordinates.FirstOrDefault(r => r.X == time);
-                    var conductivity = conductivityRecord != null ? conductivityRecord.Y : 0;
-                    contentString.AppendLine($"{time},{pH},{conductivity}");
+                    case CollectMode.PH_ONLY:
+                        contentString.AppendLine("Time(s),pH");
+                        foreach (var record in PhLogger.Data.Coordinates)
+                        {
+                            var time = record.X;
+                            var pH = record.Y;
+                            contentString.AppendLine($"{time},{pH},");
+                        }
+                        break;
+                    case CollectMode.COND_ONLY:
+                        contentString.AppendLine("Time(s),Conductivity(µS/cm)");
+                        foreach (var record in ConductivityLogger.Data.Coordinates)
+                        {
+                            var time = record.X;
+                            var conductivity = record.Y;
+                            contentString.AppendLine($"{time},{conductivity}");
+                        }
+                        break;
+                    case CollectMode.PH_AND_COND:
+                        contentString.AppendLine("Time(s),pH,Conductivity(µS/cm)");
+                        foreach (var record in PhLogger.Data.Coordinates)
+                        {
+                            var time = record.X;
+                            var pH = record.Y;
+                            var conductivityRecord = ConductivityLogger.Data.Coordinates.FirstOrDefault(r => r.X == time);
+                            var conductivity = conductivityRecord != null ? conductivityRecord.Y : 0;
+                            contentString.AppendLine($"{time},{pH},{conductivity}");
+                        }
+                        break;
                 }
 
                 // 实际保存文件的代码（例如使用 System.IO.File.WriteAllText）

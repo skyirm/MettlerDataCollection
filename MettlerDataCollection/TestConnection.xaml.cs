@@ -41,8 +41,8 @@ namespace MettlerDataCollection
         {
             InitializeComponent();
             this.DataContext = this;
-            InitSerialPort();
             settings = Properties.Settings.Default;
+            InitSerialPort();
             this.ComportCombox.ItemsSource = new ObservableCollection<string>(SerialPort.GetPortNames());
         }
 
