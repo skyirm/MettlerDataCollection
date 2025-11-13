@@ -26,12 +26,12 @@ namespace MettlerDataCollection.Properties {
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("9600")]
-        public int PortBaudRate {
+        public int BaudRate {
             get {
-                return ((int)(this["PortBaudRate"]));
+                return ((int)(this["BaudRate"]));
             }
             set {
-                this["PortBaudRate"] = value;
+                this["BaudRate"] = value;
             }
         }
         
@@ -44,6 +44,42 @@ namespace MettlerDataCollection.Properties {
             }
             set {
                 this["DataBits"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("0")]
+        public byte Parity {
+            get {
+                return ((byte)(this["Parity"]));
+            }
+            set {
+                this["Parity"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("1")]
+        public byte StopBits {
+            get {
+                return ((byte)(this["StopBits"]));
+            }
+            set {
+                this["StopBits"] = value;
+            }
+        }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("1")]
+        public byte Handshake {
+            get {
+                return ((byte)(this["Handshake"]));
+            }
+            set {
+                this["Handshake"] = value;
             }
         }
     }

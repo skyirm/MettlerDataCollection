@@ -431,6 +431,11 @@ namespace MettlerDataCollection
             if (MessageBox.Show("未导出的数据可能丢失", "确认退出",
                 MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
             {
+                if (serialPort.IsOpen)
+                {
+                    serialPort.Close();
+                    Log.Information($"串口 {SelectedComport} 已关闭。");
+                }
                 e.Cancel = true;
                 return;
             }
@@ -499,6 +504,18 @@ namespace MettlerDataCollection
         {
             var testWindow = new TestConnection();
             testWindow.ShowDialog();
+        }
+
+        private void Button_OpenAbout(object sender, RoutedEventArgs e)
+        {
+            var aboutWindow = new About();
+            aboutWindow.Show();
+        }
+
+        private void Button_OpenPortSetting(object sender, RoutedEventArgs e)
+        {
+            var settingWindow = new SerialportSetting(serialPort);
+            settingWindow.ShowDialog();
         }
     }
 
