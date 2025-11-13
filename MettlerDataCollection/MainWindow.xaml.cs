@@ -538,6 +538,22 @@ namespace MettlerDataCollection
             SampleNo = inputSampleDialog.InputText;
             this.SampleNoLabel.Content = $"样品编号: {SampleNo}";
         }
+
+        private void Button_ReadOrigindata(object sender, RoutedEventArgs e)
+        {
+            MessageBox.Show("前面的区域以后再来探索吧", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private void Button_SampleSetting(object sender, RoutedEventArgs e)
+        {
+            MessageBox.Show("前面的区域以后再来探索吧", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private void Button_OpenHelp(object sender, RoutedEventArgs e)
+        {
+            var helpWindow = new HelpWindow();
+            helpWindow.Show();
+        }
     }
 
     public enum CollectMode

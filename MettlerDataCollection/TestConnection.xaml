@@ -20,7 +20,7 @@
             <Button x:Name="Btn_OpenPort" Content="连接" MinWidth="60" Margin="2,0,2,0" Click="Button_OpenPort"/>
             <Button x:Name="Btn_ClosePort" Content="断开" IsEnabled="False" MinWidth="60" Margin="2,0,2,0" Click="Button_ClosePort"/>
         </StackPanel>
-        <TextBlock Grid.Row="1" TextWrapping="Wrap" Margin="2">####</TextBlock>
+        <TextBlock Grid.Row="1" TextWrapping="Wrap" Margin="2">在设置>硬件>外围设备>打印机界面点击测试页</TextBlock>
         <TextBox Grid.Row="2" x:Name="LogBox" AcceptsReturn="True" TextWrapping="Wrap" VerticalScrollBarVisibility="Auto"
             HorizontalScrollBarVisibility="Auto" IsReadOnly="True"></TextBox>
     </Grid>

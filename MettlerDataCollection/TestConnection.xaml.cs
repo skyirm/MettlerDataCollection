@@ -35,12 +35,14 @@ namespace MettlerDataCollection
         private object _bufferLock = new object();
         private readonly StringBuilder _receiveBuffer = new StringBuilder();
         private const string RecordDelimiter = "\r\n";
+        private Properties.Settings settings;
 
         public TestConnection()
         {
             InitializeComponent();
             this.DataContext = this;
             InitSerialPort();
+            settings = Properties.Settings.Default;
             this.ComportCombox.ItemsSource = new ObservableCollection<string>(SerialPort.GetPortNames());
         }
 
@@ -88,11 +90,11 @@ namespace MettlerDataCollection
 
         private void InitSerialPort()
         {
-            serialPort.BaudRate = 9600;
-            serialPort.DataBits = 8;
-            serialPort.Parity = Parity.None;
-            serialPort.StopBits = StopBits.One;
-            serialPort.Handshake = Handshake.XOnXOff;
+            serialPort.BaudRate = settings.BaudRate;
+            serialPort.DataBits = settings.DataBits;
+            serialPort.Parity = (Parity)settings.Parity;
+            serialPort.StopBits = (StopBits)settings.StopBits;
+            serialPort.Handshake = (Handshake)settings.Handshake;
             serialPort.DataReceived += SerialPort_DataReceived;
             serialPort.ReceivedBytesThreshold = 1;
         }
