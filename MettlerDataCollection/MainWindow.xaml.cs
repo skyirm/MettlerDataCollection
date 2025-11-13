@@ -243,7 +243,7 @@ namespace MettlerDataCollection
                 {
                     int time = int.TryParse(parts[0].Replace("s", ""), out int t) ? t : 0;
                     double pHValue = double.TryParse(parts[2], out double pH) ? pH : 0;
-                    if (dataRecord1 == null && pHValue != 0)
+                    if (dataRecord1 == null)
                     {
                         dataRecord1 = new DataRecord1 { Time = time, PHValue = pHValue };
                     }
@@ -251,7 +251,7 @@ namespace MettlerDataCollection
                 else if (parts[0] == "2" && parts.Length >= 2)
                 {
                     double conductivityValue = double.TryParse(parts[1], out double cond) ? cond : 0;
-                    if (dataRecord1 != null && conductivityValue != 0)
+                    if (dataRecord1 != null)
                     {
                         PhLogger.Add(dataRecord1.Time, dataRecord1.PHValue);
                         PhLogger.LegendText = $"Current pH: {dataRecord1.PHValue}";
