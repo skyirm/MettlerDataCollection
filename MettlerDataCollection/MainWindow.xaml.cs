@@ -17,6 +17,7 @@ namespace MettlerDataCollection
         private int _dataCount = 0;
         private bool _isCollecting = false;
         object FileLock = new object();
+        private string SampleNo = string.Empty;
 
         public bool IsCollecting { get => _isCollecting; }
 
@@ -353,9 +354,14 @@ namespace MettlerDataCollection
                 return;
             }
 
-            if (MessageBox.Show("开始采集前确保设备已停止实验，旧数据将被清除，是否继续？", "数据采集", MessageBoxButton.YesNo, MessageBoxImage.Warning)
-                == MessageBoxResult.No)
+            var inputSampleDialog = new InputSampleNo("开始采集前确保设备已停止实验，旧数据将被清除，输入样品编号后继续");
+            if (inputSampleDialog.ShowDialog() != true)
+            {
                 return;
+            }
+            SampleNo = inputSampleDialog.InputText;
+            this.SampleNoLabel.Content = $"样本编号: {SampleNo}";
+
 
             if (CollectModeCombox.SelectedIndex == 0)
             {
@@ -454,7 +460,7 @@ namespace MettlerDataCollection
             contentString.AppendLine("Time(s),pH,Conductivity(µS/cm)");
 
             // 1. 设置默认的文件名
-            saveFileDialog.FileName = "";
+            saveFileDialog.FileName = SampleNo;
 
             // 2. 设置默认的文件扩展名
             saveFileDialog.DefaultExt = ".txt";
@@ -520,6 +526,17 @@ namespace MettlerDataCollection
         {
             var settingWindow = new SerialportSetting(serialPort);
             settingWindow.ShowDialog();
+        }
+
+        private void Button_ModifySampleNo(object sender, RoutedEventArgs e)
+        {
+            var inputSampleDialog = new InputSampleNo("输入新编号");
+            if (inputSampleDialog.ShowDialog() != true)
+            {
+                return;
+            }
+            SampleNo = inputSampleDialog.InputText;
+            this.SampleNoLabel.Content = $"样品编号: {SampleNo}";
         }
     }
 

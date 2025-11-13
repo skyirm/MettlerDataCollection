@@ -55,6 +55,8 @@
         <ScottPlot:WpfPlot Grid.Row="2" Height="auto" x:Name="MainPlot" />
         <StackPanel Grid.Row="3" Height="auto" Orientation="Horizontal" Margin="2">
             <Label x:Name="ComportLabel" Content="等待连接" Margin="5,0,0,0"/>
+            <Label x:Name="SampleNoLabel" Content="样品编号：" Margin="5,0,0,0"/>
+            <Button Content="修改编号" MinWidth="80" Margin="10,0,0,0" Click="Button_ModifySampleNo"/>
             <Label x:Name="dataCountLabel"/>
         </StackPanel>
     </Grid>
