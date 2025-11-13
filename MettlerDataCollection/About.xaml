@@ -25,7 +25,7 @@
         <StackPanel Grid.Row="1" Margin="20,0" VerticalAlignment="Center" >
             <TextBlock Text="作者：Jinrui Gao" FontSize="14" Margin="0,5"/>
             <TextBlock Text="版本：v1.0.0" FontSize="14" Margin="0,5"/>
-
+            <TextBlock Text="开源协议：MIT License" FontSize="14" Margin="0,5"/>
             <!-- 项目地址 -->
             <TextBlock Text="项目地址：" FontSize="14" Margin="0,5"/>
             <TextBlock Text="https://github.com/skyirm/MettlerDataCollection"
