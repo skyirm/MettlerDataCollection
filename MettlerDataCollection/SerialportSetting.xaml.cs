@@ -27,14 +27,14 @@ public partial class SerialportSetting : Window
         { "空白校验", Parity.Space }
     };
 
+    private readonly SerialPort _serialPort;
+
     private readonly Dictionary<string, StopBits> _stopBitsMap = new()
     {
         { "1", StopBits.One },
         { "1.5", StopBits.OnePointFive },
         { "2", StopBits.Two }
     };
-
-    private readonly SerialPort _serialPort;
 
     public SerialportSetting(SerialPort serialPort)
     {

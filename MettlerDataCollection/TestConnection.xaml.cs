@@ -13,8 +13,8 @@ namespace MettlerDataCollection;
 public partial class TestConnection : Window
 {
     private const string RecordDelimiter = "\r\n";
-    private readonly StringBuilder _receiveBuffer = new();
     private readonly object _bufferLock = new();
+    private readonly StringBuilder _receiveBuffer = new();
 
     private readonly SerialPort serialPort = new();
     private readonly Settings settings;

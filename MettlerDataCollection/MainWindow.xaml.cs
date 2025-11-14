@@ -19,21 +19,21 @@ public partial class MainWindow : Window
 
     private readonly StringBuilder _receiveBuffer = new();
 
+    private readonly ComPortWatcher _watcher;
+    private readonly object FileLock = new();
+    private readonly SerialPort serialPort = new();
+    private readonly DispatcherTimer timer = new();
+
     private CollectMode _currentMode = CollectMode.PH_AND_COND;
     private int _dataCount;
     private bool _isCollecting;
-
-    private readonly ComPortWatcher _watcher;
     private DataLogger ConductivityLogger;
     private DataRecord1? dataRecord1;
-    private readonly object FileLock = new();
 
     public string LogFilePath = $"./log/{DateTime.Now:yyyyMMdd_HHmmss}.txt";
 
     private DataLogger PhLogger;
     private string SampleNo = string.Empty;
-    private readonly SerialPort serialPort = new();
-    private readonly DispatcherTimer timer = new();
 
     public MainWindow()
     {
@@ -292,7 +292,7 @@ public partial class MainWindow : Window
         if (serialPort.IsOpen) return;
         if (string.IsNullOrEmpty(SelectedComport))
         {
-            MessageBox.Show("请选择一个串口！");
+            FluentMessageBox.Show("请选择一个串口！", "提示", icon: MessageBoxImage.Error, owner: this);
             return;
         }
 
@@ -305,6 +305,8 @@ public partial class MainWindow : Window
             ComportLabel.Content = $"串口{SelectedComport}已连接。";
             Log.Information($"串口 {SelectedComport} 已打开。");
             ComportCombox.IsEnabled = false;
+            Btn_ClosePort.IsEnabled = true;
+            Btn_OpenPort.IsEnabled = false;
         }
         catch (Exception ex)
         {
@@ -323,6 +325,8 @@ public partial class MainWindow : Window
             ComportLabel.Content = $"串口{SelectedComport}已断开。";
             ComportCombox.IsEnabled = true;
             Log.Information($"串口 {SelectedComport} 已关闭。");
+            Btn_OpenPort.IsEnabled = true;
+            Btn_ClosePort.IsEnabled = false;
         }
         catch (Exception ex)
         {
@@ -335,7 +339,7 @@ public partial class MainWindow : Window
     {
         if (!serialPort.IsOpen)
         {
-            MessageBox.Show("请先连接串口！");
+            FluentMessageBox.Show("请先连接串口", "提示", MessageBoxButton.OK, MessageBoxImage.Warning, this);
             return;
         }
 
@@ -399,21 +403,24 @@ public partial class MainWindow : Window
         _dataCount = 0;
         _isCollecting = true;
         Log.Information("数据采集开始。");
+        Btn_StopCollect.IsEnabled = true;
+        Btn_StartCollect.IsEnabled = false;
     }
 
     private void Button_StopCollect(object sender, RoutedEventArgs e)
     {
         _isCollecting = false;
         Log.Information("数据采集停止。");
-        MessageBox.Show("数据采集已停止", "数据采集", MessageBoxButton.OK, MessageBoxImage.Information);
         timer.Stop();
+        Btn_StartCollect.IsEnabled = true;
+        Btn_StopCollect.IsEnabled = false;
     }
 
 
     private void MainWindow_Closing(object sender, CancelEventArgs e)
     {
-        if (MessageBox.Show("未导出的数据可能丢失", "确认退出",
-                MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes)
+        if (FluentMessageBox.Show("未导出的数据可能丢失", "确认退出",
+                MessageBoxButton.OKCancel, MessageBoxImage.Warning, this) != MessageBoxResult.OK)
         {
             if (serialPort.IsOpen)
             {
@@ -498,7 +505,8 @@ public partial class MainWindow : Window
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"导出数据时发生错误，请重试。{ex.Message}");
+                FluentMessageBox.Show($"导出数据时发生错误，请重试。{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error,
+                    this);
                 Log.Error($"导出数据到文件 {filename} 时发生错误。{ex.Message}");
             }
         }
@@ -539,7 +547,7 @@ public partial class MainWindow : Window
 
     private void Button_SampleSetting(object sender, RoutedEventArgs e)
     {
-        MessageBox.Show("前面的区域以后再来探索吧", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+        FluentMessageBox.Show("前面的区域以后再来探索吧", "提示", MessageBoxButton.OK, MessageBoxImage.Information, this);
     }
 
     private void Button_OpenHelp(object sender, RoutedEventArgs e)
