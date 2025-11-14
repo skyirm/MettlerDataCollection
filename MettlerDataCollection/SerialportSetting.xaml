@@ -7,9 +7,9 @@
         ResizeMode="NoResize">
     <Grid Margin="20">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
         <TextBlock Grid.Row="0" FontWeight="Bold" TextWrapping="Wrap">参数与设备不一致会导致无法读取数据</TextBlock>
 
@@ -17,51 +17,50 @@
 
             <!-- 波特率 -->
             <StackPanel Orientation="Horizontal" Margin="0,5">
-                <TextBlock Text="波特率：" Width="100" VerticalAlignment="Center"/>
+                <TextBlock Text="波特率：" Width="100" VerticalAlignment="Center" />
                 <ComboBox x:Name="BaudRateBox" Width="200">
-                    <ComboBoxItem Content="1200"/>
-                    <ComboBoxItem Content="2400"/>
-                    <ComboBoxItem Content="4800"/>
-                    <ComboBoxItem Content="9600"/>
-                    <ComboBoxItem Content="19200"/>
+                    <ComboBoxItem Content="1200" />
+                    <ComboBoxItem Content="2400" />
+                    <ComboBoxItem Content="4800" />
+                    <ComboBoxItem Content="9600" />
+                    <ComboBoxItem Content="19200" />
                 </ComboBox>
             </StackPanel>
 
             <!-- 数据位 -->
             <StackPanel Orientation="Horizontal" Margin="0,5">
-                <TextBlock Text="数据位：" Width="100" VerticalAlignment="Center"/>
+                <TextBlock Text="数据位：" Width="100" VerticalAlignment="Center" />
                 <ComboBox x:Name="DataBitsBox" Width="200">
-                    <ComboBoxItem Content="5"/>
-                    <ComboBoxItem Content="6"/>
-                    <ComboBoxItem Content="7"/>
-                    <ComboBoxItem Content="8"/>
+                    <ComboBoxItem Content="5" />
+                    <ComboBoxItem Content="6" />
+                    <ComboBoxItem Content="7" />
+                    <ComboBoxItem Content="8" />
                 </ComboBox>
             </StackPanel>
 
             <!-- 校验位 -->
             <StackPanel Orientation="Horizontal" Margin="0,5">
-                <TextBlock Text="校验位：" Width="100" VerticalAlignment="Center"/>
-                <ComboBox x:Name="ParityBox" Width="200"/>
+                <TextBlock Text="校验位：" Width="100" VerticalAlignment="Center" />
+                <ComboBox x:Name="ParityBox" Width="200" />
             </StackPanel>
 
             <!-- 停止位 -->
             <StackPanel Orientation="Horizontal" Margin="0,5">
-                <TextBlock Text="停止位：" Width="100" VerticalAlignment="Center"/>
-                <ComboBox x:Name="StopBitsBox" Width="200"/>
+                <TextBlock Text="停止位：" Width="100" VerticalAlignment="Center" />
+                <ComboBox x:Name="StopBitsBox" Width="200" />
             </StackPanel>
 
             <!-- 握手协议 -->
             <StackPanel Orientation="Horizontal" Margin="0,5">
-                <TextBlock Text="握手协议：" Width="100" VerticalAlignment="Center"/>
-                <ComboBox x:Name="HandshakeBox" Width="200"/>
+                <TextBlock Text="握手协议：" Width="100" VerticalAlignment="Center" />
+                <ComboBox x:Name="HandshakeBox" Width="200" />
             </StackPanel>
         </StackPanel>
 
         <!-- 底部按钮 -->
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Center">
-            <Button Content="保存" Width="80" Margin="10,0" Click="Save_Click"/>
-            <Button Content="取消" Width="80" Margin="10,0" Click="Cancel_Click"/>
+            <Button Content="保存" Width="80" Margin="10,0" Click="Save_Click" />
+            <Button Content="取消" Width="80" Margin="10,0" Click="Cancel_Click" />
         </StackPanel>
     </Grid>
 </Window>
-

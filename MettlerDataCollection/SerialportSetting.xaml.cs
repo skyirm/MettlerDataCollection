@@ -1,109 +1,99 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO.Ports;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.IO.Ports;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Shapes;
+using MettlerDataCollection.Properties;
 
-namespace MettlerDataCollection
+namespace MettlerDataCollection;
+
+/// <summary>
+///     SerialportSetting.xaml 的交互逻辑
+/// </summary>
+public partial class SerialportSetting : Window
 {
-    /// <summary>
-    /// SerialportSetting.xaml 的交互逻辑
-    /// </summary>
-    public partial class SerialportSetting : Window
+    private readonly Dictionary<string, Handshake> _handshakeMap = new()
     {
-        private SerialPort _serialPort;
+        { "无", Handshake.None },
+        { "XOn/XOff", Handshake.XOnXOff },
+        { "硬件RTS/CTS", Handshake.RequestToSend },
+        { "RTS/XOnXOff", Handshake.RequestToSendXOnXOff }
+    };
 
-        private readonly Dictionary<string, Parity> _parityMap = new()
-        {
-            { "无校验", Parity.None },
-            { "奇校验", Parity.Odd },
-            { "偶校验", Parity.Even },
-            { "标志校验", Parity.Mark },
-            { "空白校验", Parity.Space },
-        };
+    private readonly Dictionary<string, Parity> _parityMap = new()
+    {
+        { "无校验", Parity.None },
+        { "奇校验", Parity.Odd },
+        { "偶校验", Parity.Even },
+        { "标志校验", Parity.Mark },
+        { "空白校验", Parity.Space }
+    };
 
-        private readonly Dictionary<string, StopBits> _stopBitsMap = new()
-        {
-            { "1", StopBits.One },
-            { "1.5", StopBits.OnePointFive },
-            { "2", StopBits.Two },
-        };
+    private readonly Dictionary<string, StopBits> _stopBitsMap = new()
+    {
+        { "1", StopBits.One },
+        { "1.5", StopBits.OnePointFive },
+        { "2", StopBits.Two }
+    };
 
-        private readonly Dictionary<string, Handshake> _handshakeMap = new()
-        {
-            { "无", Handshake.None },
-            { "XOn/XOff", Handshake.XOnXOff },
-            { "硬件RTS/CTS", Handshake.RequestToSend },
-            { "RTS/XOnXOff", Handshake.RequestToSendXOnXOff },
-        };
-        public SerialportSetting(SerialPort serialPort)
-        {
-            InitializeComponent();
-            _serialPort = serialPort;
-            LoadSettings();
-        }
+    private readonly SerialPort _serialPort;
 
-        private void LoadSettings()
-        {
-            var s = Properties.Settings.Default;
+    public SerialportSetting(SerialPort serialPort)
+    {
+        InitializeComponent();
+        _serialPort = serialPort;
+        LoadSettings();
+    }
 
-            // 填充枚举下拉框
-            ParityBox.ItemsSource = _parityMap.Keys;
-            StopBitsBox.ItemsSource = _stopBitsMap.Keys;
-            HandshakeBox.ItemsSource = _handshakeMap.Keys;
+    private void LoadSettings()
+    {
+        var s = Settings.Default;
 
-            // 载入数值设置
-            BaudRateBox.SelectedItem = BaudRateBox.Items
-                .Cast<ComboBoxItem>()
-                .FirstOrDefault(i => i.Content.ToString() == s.BaudRate.ToString());
+        // 填充枚举下拉框
+        ParityBox.ItemsSource = _parityMap.Keys;
+        StopBitsBox.ItemsSource = _stopBitsMap.Keys;
+        HandshakeBox.ItemsSource = _handshakeMap.Keys;
 
-            DataBitsBox.SelectedItem = DataBitsBox.Items
-                .Cast<ComboBoxItem>()
-                .FirstOrDefault(i => i.Content.ToString() == s.DataBits.ToString());
+        // 载入数值设置
+        BaudRateBox.SelectedItem = BaudRateBox.Items
+            .Cast<ComboBoxItem>()
+            .FirstOrDefault(i => i.Content.ToString() == s.BaudRate.ToString());
 
-            // 载入枚举映射
-            ParityBox.SelectedItem = _parityMap.FirstOrDefault(x => x.Value == (Parity)s.Parity).Key;
-            StopBitsBox.SelectedItem = _stopBitsMap.FirstOrDefault(x => x.Value == (StopBits)s.StopBits).Key;
-            HandshakeBox.SelectedItem = _handshakeMap.FirstOrDefault(x => x.Value == (Handshake)s.Handshake).Key;
-        }
+        DataBitsBox.SelectedItem = DataBitsBox.Items
+            .Cast<ComboBoxItem>()
+            .FirstOrDefault(i => i.Content.ToString() == s.DataBits.ToString());
 
-        private void Save_Click(object sender, RoutedEventArgs e)
-        {
-            var s = Properties.Settings.Default;
+        // 载入枚举映射
+        ParityBox.SelectedItem = _parityMap.FirstOrDefault(x => x.Value == (Parity)s.Parity).Key;
+        StopBitsBox.SelectedItem = _stopBitsMap.FirstOrDefault(x => x.Value == (StopBits)s.StopBits).Key;
+        HandshakeBox.SelectedItem = _handshakeMap.FirstOrDefault(x => x.Value == (Handshake)s.Handshake).Key;
+    }
 
-            s.BaudRate = int.Parse(((ComboBoxItem)BaudRateBox.SelectedItem).Content.ToString());
-            s.DataBits = int.Parse(((ComboBoxItem)DataBitsBox.SelectedItem).Content.ToString());
+    private void Save_Click(object sender, RoutedEventArgs e)
+    {
+        var s = Settings.Default;
 
-            // 保存枚举映射
-            s.Parity = (byte)_parityMap[ParityBox.SelectedItem.ToString()];
-            s.StopBits = (byte)_stopBitsMap[StopBitsBox.SelectedItem.ToString()];
-            s.Handshake = (byte)_handshakeMap[HandshakeBox.SelectedItem.ToString()];
+        s.BaudRate = int.Parse(((ComboBoxItem)BaudRateBox.SelectedItem).Content.ToString());
+        s.DataBits = int.Parse(((ComboBoxItem)DataBitsBox.SelectedItem).Content.ToString());
 
-            s.Save();
+        // 保存枚举映射
+        s.Parity = (byte)_parityMap[ParityBox.SelectedItem.ToString()];
+        s.StopBits = (byte)_stopBitsMap[StopBitsBox.SelectedItem.ToString()];
+        s.Handshake = (byte)_handshakeMap[HandshakeBox.SelectedItem.ToString()];
 
-            // 更新主串口对象
-            _serialPort.BaudRate = s.BaudRate;
-            _serialPort.DataBits = s.DataBits;
-            _serialPort.Parity = (Parity)s.Parity;
-            _serialPort.StopBits = (StopBits)s.StopBits;
-            _serialPort.Handshake = (Handshake)s.Handshake;
+        s.Save();
 
-            MessageBox.Show("串口设置已保存。", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
-            Close();
-        }
+        // 更新主串口对象
+        _serialPort.BaudRate = s.BaudRate;
+        _serialPort.DataBits = s.DataBits;
+        _serialPort.Parity = (Parity)s.Parity;
+        _serialPort.StopBits = (StopBits)s.StopBits;
+        _serialPort.Handshake = (Handshake)s.Handshake;
 
-        private void Cancel_Click(object sender, RoutedEventArgs e)
-        {
-            Close();
-        }
+        MessageBox.Show("串口设置已保存。", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+        Close();
+    }
+
+    private void Cancel_Click(object sender, RoutedEventArgs e)
+    {
+        Close();
     }
 }
