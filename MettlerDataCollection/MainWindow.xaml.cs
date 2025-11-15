@@ -7,6 +7,7 @@ using System.Windows;
 using System.Windows.Threading;
 using Microsoft.Win32;
 using ScottPlot;
+using ScottPlot.DataGenerators;
 using ScottPlot.Plottables;
 using Serilog;
 
@@ -113,8 +114,6 @@ public partial class MainWindow : Window
 
     private void Timer_Tick(object? sender, EventArgs e)
     {
-        if (PhLogger.HasNewData || ConductivityLogger.HasNewData)
-        {
             if (showFull.IsChecked == true)
             {
                 PhLogger.ViewFull();
@@ -122,12 +121,11 @@ public partial class MainWindow : Window
             }
             else if (showSlide.IsChecked == true)
             {
-                PhLogger.ViewSlide(20);
-                ConductivityLogger.ViewSlide(20);
-            }
+                PhLogger.ViewSlide(200);
+                ConductivityLogger.ViewSlide(200);
 
+            }
             MainPlot.Refresh();
-        }
     }
 
     private void HandleComPortsChanged(List<string> list)
@@ -554,6 +552,25 @@ public partial class MainWindow : Window
     {
         var helpWindow = new HelpWindow { Owner = this, WindowStartupLocation = WindowStartupLocation.CenterOwner };
         helpWindow.Show();
+    }
+
+    private async void Create_data(object sender, RoutedEventArgs e)
+    {
+        int time = 0;
+        double ph = 7.0;
+        double cond = 3.5;
+        timer.Start();
+        var random = new Random();
+        while (true)
+        {
+            time += 5;
+            ph += random.Next(-5, 5) * -1;
+            cond += random.Next(-10,10) * -50;
+            PhLogger.Add(time,ph);
+            ConductivityLogger.Add(time,cond);
+            await Task.Delay(100);
+            MainPlot.Refresh();
+        }
     }
 }
 
