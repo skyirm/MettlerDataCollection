@@ -21,28 +21,28 @@ public partial class MainWindow : Window
     private readonly StringBuilder _receiveBuffer = new();
 
     private readonly ComPortWatcher _watcher;
-    private readonly object FileLock = new();
-    private readonly SerialPort serialPort = new();
-    private readonly DispatcherTimer timer = new();
+    private readonly object _fileLock = new();
+    private readonly SerialPort _serialPort = new();
+    private readonly DispatcherTimer _dispatcherTimer = new();
 
     private CollectMode _currentMode = CollectMode.PH_AND_COND;
     private int _dataCount;
     private bool _isCollecting;
-    private DataLogger ConductivityLogger;
-    private DataRecord1? dataRecord1;
+    private DataLogger _conductivityLogger;
+    private DataRecord1? _dataRecord1;
 
     public string LogFilePath = $"./log/{DateTime.Now:yyyyMMdd_HHmmss}.txt";
 
-    private DataLogger PhLogger;
-    private string SampleNo = string.Empty;
+    private DataLogger _phLogger;
+    private string _sampleNo = string.Empty;
 
     public MainWindow()
     {
         InitializeComponent();
         DataContext = this;
 
-        timer.Interval = TimeSpan.FromSeconds(1);
-        timer.Tick += Timer_Tick;
+        _dispatcherTimer.Interval = TimeSpan.FromSeconds(1);
+        _dispatcherTimer.Tick += DispatcherTimerTick;
 
         _watcher = new ComPortWatcher();
         _watcher.ComPortsChanged += HandleComPortsChanged;
@@ -86,16 +86,16 @@ public partial class MainWindow : Window
         MainPlot.Plot.Legend.FontSize = 16;
 
 
-        PhLogger = MainPlot.Plot.Add.DataLogger();
-        ConductivityLogger = MainPlot.Plot.Add.DataLogger();
-        PhLogger.Color = Colors.Red;
-        PhLogger.LineWidth = 2;
-        ConductivityLogger.Color = Colors.Blue;
-        ConductivityLogger.LineWidth = 2;
-        PhLogger.Axes.YAxis = MainPlot.Plot.Axes.Left;
-        ConductivityLogger.Axes.YAxis = MainPlot.Plot.Axes.Right;
-        PhLogger.LegendText = "Current pH: 0";
-        ConductivityLogger.LegendText = "Current Cond: 0";
+        _phLogger = MainPlot.Plot.Add.DataLogger();
+        _conductivityLogger = MainPlot.Plot.Add.DataLogger();
+        _phLogger.Color = Colors.Red;
+        _phLogger.LineWidth = 2;
+        _conductivityLogger.Color = Colors.Blue;
+        _conductivityLogger.LineWidth = 2;
+        _phLogger.Axes.YAxis = MainPlot.Plot.Axes.Left;
+        _conductivityLogger.Axes.YAxis = MainPlot.Plot.Axes.Right;
+        _phLogger.LegendText = "Current pH: 0";
+        _conductivityLogger.LegendText = "Current Cond: 0";
 
 
         MainPlot.Refresh();
@@ -103,29 +103,29 @@ public partial class MainWindow : Window
 
     private void InitSerialPort()
     {
-        serialPort.BaudRate = 9600;
-        serialPort.DataBits = 8;
-        serialPort.Parity = Parity.None;
-        serialPort.StopBits = StopBits.One;
-        serialPort.Handshake = Handshake.XOnXOff;
-        serialPort.DataReceived += SerialPort_DataReceived;
-        serialPort.ReceivedBytesThreshold = 1;
+        _serialPort.BaudRate = 9600;
+        _serialPort.DataBits = 8;
+        _serialPort.Parity = Parity.None;
+        _serialPort.StopBits = StopBits.One;
+        _serialPort.Handshake = Handshake.XOnXOff;
+        _serialPort.DataReceived += SerialPort_DataReceived;
+        _serialPort.ReceivedBytesThreshold = 1;
     }
 
-    private void Timer_Tick(object? sender, EventArgs e)
+    private void DispatcherTimerTick(object? sender, EventArgs e)
     {
-            if (showFull.IsChecked == true)
-            {
-                PhLogger.ViewFull();
-                ConductivityLogger.ViewFull();
-            }
-            else if (showSlide.IsChecked == true)
-            {
-                PhLogger.ViewSlide(200);
-                ConductivityLogger.ViewSlide(200);
+        if (showFull.IsChecked == true)
+        {
+            _phLogger.ViewFull();
+            _conductivityLogger.ViewFull();
+        }
+        else if (showSlide.IsChecked == true)
+        {
+            _phLogger.ViewSlide(200);
+            _conductivityLogger.ViewSlide(200);
+        }
 
-            }
-            MainPlot.Refresh();
+        MainPlot.Refresh();
     }
 
     private void HandleComPortsChanged(List<string> list)
@@ -137,7 +137,7 @@ public partial class MainWindow : Window
     {
         try
         {
-            var newData = serialPort.ReadExisting();
+            var newData = _serialPort.ReadExisting();
 
             lock (_bufferLock)
             {
@@ -201,8 +201,8 @@ public partial class MainWindow : Window
             return;
         var time = int.TryParse(parts[0].Replace("s", ""), out var _t) ? _t : 0;
         var CondValue = double.TryParse(parts[1], out var cond) ? cond : 0;
-        ConductivityLogger.Add(time, CondValue);
-        ConductivityLogger.LegendText = $"Current Cond: {CondValue}";
+        _conductivityLogger.Add(time, CondValue);
+        _conductivityLogger.LegendText = $"Current Cond: {CondValue}";
         _dataCount++;
         dataCountLabel.Content = $"已接收数据: {_dataCount}个";
     }
@@ -214,8 +214,8 @@ public partial class MainWindow : Window
             return;
         var time = int.TryParse(parts[0].Replace("s", ""), out var _t) ? _t : 0;
         var pHValue = double.TryParse(parts[1], out var pH) ? pH : 0;
-        PhLogger.Add(time, pHValue);
-        PhLogger.LegendText = $"Current pH: {pHValue}";
+        _phLogger.Add(time, pHValue);
+        _phLogger.LegendText = $"Current pH: {pHValue}";
         _dataCount++;
         dataCountLabel.Content = $"已接收数据: {_dataCount}个";
     }
@@ -232,20 +232,20 @@ public partial class MainWindow : Window
             {
                 var time = int.TryParse(parts[0].Replace("s", ""), out var t) ? t : 0;
                 var pHValue = double.TryParse(parts[2], out var pH) ? pH : 0;
-                if (dataRecord1 == null) dataRecord1 = new DataRecord1 { Time = time, PHValue = pHValue };
+                if (_dataRecord1 == null) _dataRecord1 = new DataRecord1 { Time = time, PHValue = pHValue };
             }
             else if (parts[0] == "2" && parts.Length >= 2)
             {
                 var conductivityValue = double.TryParse(parts[1], out var cond) ? cond : 0;
-                if (dataRecord1 != null)
+                if (_dataRecord1 != null)
                 {
-                    PhLogger.Add(dataRecord1.Time, dataRecord1.PHValue);
-                    PhLogger.LegendText = $"Current pH: {dataRecord1.PHValue}";
-                    ConductivityLogger.Add(dataRecord1.Time, conductivityValue);
-                    ConductivityLogger.LegendText = $"Current Cond: {conductivityValue}";
+                    _phLogger.Add(_dataRecord1.Time, _dataRecord1.PHValue);
+                    _phLogger.LegendText = $"Current pH: {_dataRecord1.PHValue}";
+                    _conductivityLogger.Add(_dataRecord1.Time, conductivityValue);
+                    _conductivityLogger.LegendText = $"Current Cond: {conductivityValue}";
                     _dataCount++;
                     dataCountLabel.Content = $"已接收数据: {_dataCount}个";
-                    dataRecord1 = null;
+                    _dataRecord1 = null;
                 }
             }
         }
@@ -257,7 +257,7 @@ public partial class MainWindow : Window
 
     private void WriteDataToFile(string completeRecord)
     {
-        lock (FileLock)
+        lock (_fileLock)
         {
             try
             {
@@ -287,18 +287,18 @@ public partial class MainWindow : Window
 
     private void Button_OpenPort(object sender, RoutedEventArgs e)
     {
-        if (serialPort.IsOpen) return;
+        if (_serialPort.IsOpen) return;
         if (string.IsNullOrEmpty(SelectedComport))
         {
             FluentMessageBox.Show("请选择一个串口！", "提示", icon: MessageBoxImage.Error, owner: this);
             return;
         }
 
-        serialPort.PortName = SelectedComport;
+        _serialPort.PortName = SelectedComport;
 
         try
         {
-            serialPort.Open();
+            _serialPort.Open();
             LogFilePath = $"./origindata/{DateTime.Now:yyyyMMdd_HHmmss}.txt";
             ComportLabel.Content = $"串口{SelectedComport}已连接。";
             Log.Information($"串口 {SelectedComport} 已打开。");
@@ -315,11 +315,11 @@ public partial class MainWindow : Window
 
     private void Button_ClosePort(object sender, RoutedEventArgs e)
     {
-        if (!serialPort.IsOpen) return;
+        if (!_serialPort.IsOpen) return;
 
         try
         {
-            serialPort.Close();
+            _serialPort.Close();
             ComportLabel.Content = $"串口{SelectedComport}已断开。";
             ComportCombox.IsEnabled = true;
             Log.Information($"串口 {SelectedComport} 已关闭。");
@@ -335,7 +335,7 @@ public partial class MainWindow : Window
 
     private void Button_StartCollect(object sender, RoutedEventArgs e)
     {
-        if (!serialPort.IsOpen)
+        if (!_serialPort.IsOpen)
         {
             FluentMessageBox.Show("请先连接串口", "提示", MessageBoxButton.OK, MessageBoxImage.Warning, this);
             return;
@@ -344,8 +344,8 @@ public partial class MainWindow : Window
         var inputSampleDialog = new InputSampleNo("开始采集前确保设备已停止实验，旧数据将被清除，输入样品编号后继续")
             { Owner = this, WindowStartupLocation = WindowStartupLocation.CenterOwner };
         if (inputSampleDialog.ShowDialog() != true) return;
-        SampleNo = inputSampleDialog.InputText;
-        SampleNoLabel.Content = $"样品编号: {SampleNo}";
+        _sampleNo = inputSampleDialog.InputText;
+        SampleNoLabel.Content = $"样品编号: {_sampleNo}";
 
 
         if (CollectModeCombox.SelectedIndex == 0)
@@ -357,11 +357,11 @@ public partial class MainWindow : Window
         try
         {
             // === 1️⃣ 清理串口残留数据 ===
-            serialPort.DiscardOutBuffer(); // 清发送缓冲
+            _serialPort.DiscardOutBuffer(); // 清发送缓冲
             var remainingData = string.Empty;
 
             // 尝试读取残留接收缓冲区
-            if (serialPort.BytesToRead > 0) remainingData = serialPort.ReadExisting();
+            if (_serialPort.BytesToRead > 0) remainingData = _serialPort.ReadExisting();
 
             // 如果还有内存缓冲里的数据
             lock (_bufferLock)
@@ -392,10 +392,10 @@ public partial class MainWindow : Window
             Log.Error($"清空串口残留数据时发生错误: {ex.Message}");
         }
 
-        PhLogger.Clear();
-        ConductivityLogger.Clear();
+        _phLogger.Clear();
+        _conductivityLogger.Clear();
         dataCountLabel.Content = "已接收数据: 0个";
-        timer.Start();
+        _dispatcherTimer.Start();
         LogFilePath = $"./origindata/{DateTime.Now:yyyyMMdd_HHmmss}.txt";
         MainPlot.Refresh();
         _dataCount = 0;
@@ -409,7 +409,7 @@ public partial class MainWindow : Window
     {
         _isCollecting = false;
         Log.Information("数据采集停止。");
-        timer.Stop();
+        _dispatcherTimer.Stop();
         Btn_StartCollect.IsEnabled = true;
         Btn_StopCollect.IsEnabled = false;
     }
@@ -420,9 +420,9 @@ public partial class MainWindow : Window
         if (FluentMessageBox.Show("未导出的数据可能丢失", "确认退出",
                 MessageBoxButton.OKCancel, MessageBoxImage.Warning, this) != MessageBoxResult.OK)
         {
-            if (serialPort.IsOpen)
+            if (_serialPort.IsOpen)
             {
-                serialPort.Close();
+                _serialPort.Close();
                 Log.Information($"串口 {SelectedComport} 已关闭。");
             }
 
@@ -438,7 +438,7 @@ public partial class MainWindow : Window
         var contentString = new StringBuilder();
 
         // 1. 设置默认的文件名
-        saveFileDialog.FileName = SampleNo;
+        saveFileDialog.FileName = _sampleNo;
 
         // 2. 设置默认的文件扩展名
         saveFileDialog.DefaultExt = ".txt";
@@ -463,7 +463,7 @@ public partial class MainWindow : Window
             {
                 case CollectMode.PH_ONLY:
                     contentString.AppendLine("Time(s),pH");
-                    foreach (var record in PhLogger.Data.Coordinates)
+                    foreach (var record in _phLogger.Data.Coordinates)
                     {
                         var time = record.X;
                         var pH = record.Y;
@@ -473,7 +473,7 @@ public partial class MainWindow : Window
                     break;
                 case CollectMode.COND_ONLY:
                     contentString.AppendLine("Time(s),Conductivity(µS/cm)");
-                    foreach (var record in ConductivityLogger.Data.Coordinates)
+                    foreach (var record in _conductivityLogger.Data.Coordinates)
                     {
                         var time = record.X;
                         var conductivity = record.Y;
@@ -483,11 +483,11 @@ public partial class MainWindow : Window
                     break;
                 case CollectMode.PH_AND_COND:
                     contentString.AppendLine("Time(s),pH,Conductivity(µS/cm)");
-                    foreach (var record in PhLogger.Data.Coordinates)
+                    foreach (var record in _phLogger.Data.Coordinates)
                     {
                         var time = record.X;
                         var pH = record.Y;
-                        var conductivityRecord = ConductivityLogger.Data.Coordinates.FirstOrDefault(r => r.X == time);
+                        var conductivityRecord = _conductivityLogger.Data.Coordinates.FirstOrDefault(r => r.X == time);
                         var conductivity = conductivityRecord != null ? conductivityRecord.Y : 0;
                         contentString.AppendLine($"{time},{pH},{conductivity}");
                     }
@@ -524,7 +524,7 @@ public partial class MainWindow : Window
 
     private void Button_OpenPortSetting(object sender, RoutedEventArgs e)
     {
-        var settingWindow = new SerialportSetting(serialPort)
+        var settingWindow = new SerialportSetting(_serialPort)
             { Owner = this, WindowStartupLocation = WindowStartupLocation.CenterOwner };
         settingWindow.ShowDialog();
     }
@@ -534,8 +534,8 @@ public partial class MainWindow : Window
         var inputSampleDialog = new InputSampleNo("输入新编号")
             { Owner = this, WindowStartupLocation = WindowStartupLocation.CenterOwner };
         if (inputSampleDialog.ShowDialog() != true) return;
-        SampleNo = inputSampleDialog.InputText;
-        SampleNoLabel.Content = $"样品编号: {SampleNo}";
+        _sampleNo = inputSampleDialog.InputText;
+        SampleNoLabel.Content = $"样品编号: {_sampleNo}";
     }
 
     private void Button_ReadOrigindata(object sender, RoutedEventArgs e)
@@ -559,15 +559,15 @@ public partial class MainWindow : Window
         int time = 0;
         double ph = 7.0;
         double cond = 3.5;
-        timer.Start();
+        _dispatcherTimer.Start();
         var random = new Random();
         while (true)
         {
             time += 5;
             ph += random.Next(-5, 5) * -1;
-            cond += random.Next(-10,10) * -50;
-            PhLogger.Add(time,ph);
-            ConductivityLogger.Add(time,cond);
+            cond += random.Next(-10, 10) * -50;
+            _phLogger.Add(time, ph);
+            _conductivityLogger.Add(time, cond);
             await Task.Delay(100);
             MainPlot.Refresh();
         }
