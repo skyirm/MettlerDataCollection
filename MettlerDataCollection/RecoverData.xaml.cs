@@ -72,7 +72,7 @@ public partial class RecoverData : Window
         var openFileDialog = new OpenFileDialog
         {
             Title = "打开文件",
-            InitialDirectory = "./origindata",
+            InitialDirectory = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "origindata"),
             DefaultExt = ".txt"
         };
 
