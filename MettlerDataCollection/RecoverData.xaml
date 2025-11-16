@@ -1,0 +1,28 @@
+﻿<Window x:Class="MettlerDataCollection.RecoverData"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:MettlerDataCollection"
+        xmlns:scottPlot="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF"
+        mc:Ignorable="d"
+        Title="RecoverData" Height="450" Width="800">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <StackPanel Orientation="Horizontal" Grid.Row="0">
+            <TextBlock Width="400"></TextBlock>
+            <ComboBox Name="CollectModeCombox" Width="100" Margin="2,0,2,0" VerticalAlignment="Center">
+                <ComboBoxItem Content="pH+电导率" IsSelected="True" />
+                <ComboBoxItem Content="pH" />
+                <ComboBoxItem Content="电导率" />
+            </ComboBox>
+            <Button Click="ReadFile">读取文件</Button>
+            <Button Click="ExportData">导出数据</Button>
+        </StackPanel>
+        <scottPlot:WpfPlot Grid.Row="1" x:Name="MainPlot" Height="auto"></scottPlot:WpfPlot>
+
+    </Grid>
+</Window>

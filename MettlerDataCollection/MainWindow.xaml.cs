@@ -29,12 +29,13 @@ public partial class MainWindow : Window
     private int _dataCount;
     private bool _isCollecting;
     private DataLogger _conductivityLogger;
-    private DataRecord1? _dataRecord1;
+    private PartialDataRecord? _partialDataRecord;
 
     public string LogFilePath = $"./log/{DateTime.Now:yyyyMMdd_HHmmss}.txt";
 
     private DataLogger _phLogger;
     private string _sampleNo = string.Empty;
+    private LegendItem _timeLegendItem;
 
     public MainWindow()
     {
@@ -53,6 +54,7 @@ public partial class MainWindow : Window
 
         InitPlot();
         InitSerialPort();
+        //Create_data(new object(), new RoutedEventArgs());
     }
 
     public string SelectedComport { get; set; }
@@ -65,25 +67,38 @@ public partial class MainWindow : Window
     private void InitPlot()
     {
         MainPlot.Plot.XLabel("Time (s)");
-        MainPlot.Plot.Axes.Bottom.TickLabelStyle.FontSize = 16;
+        MainPlot.Plot.Axes.Bottom.TickLabelStyle.FontSize = 22;
 
         MainPlot.Plot.Axes.Left.Label.Text = "pH";
+        MainPlot.Plot.Axes.Left.Label.FontSize = 22;
         MainPlot.Plot.Axes.Left.Label.ForeColor = Colors.Red;
-        MainPlot.Plot.Axes.Left.TickLabelStyle.FontSize = 16;
+        MainPlot.Plot.Axes.Left.TickLabelStyle.FontSize = 22;
         MainPlot.Plot.Axes.Left.FrameLineStyle.Color = Colors.Red;
         MainPlot.Plot.Axes.Left.MajorTickStyle.Color = Colors.Red;
         MainPlot.Plot.Axes.Left.MinorTickStyle.Color = Colors.Red;
         MainPlot.Plot.Axes.Left.TickLabelStyle.ForeColor = Colors.Red;
 
         MainPlot.Plot.Axes.Right.Label.Text = "Conductivity (µS/cm)";
+        MainPlot.Plot.Axes.Right.Label.FontSize = 22;
         MainPlot.Plot.Axes.Right.Label.ForeColor = Colors.Blue;
-        MainPlot.Plot.Axes.Right.TickLabelStyle.FontSize = 16;
+        MainPlot.Plot.Axes.Right.TickLabelStyle.FontSize = 22;
         MainPlot.Plot.Axes.Right.FrameLineStyle.Color = Colors.Blue;
         MainPlot.Plot.Axes.Right.MajorTickStyle.Color = Colors.Blue;
         MainPlot.Plot.Axes.Right.MinorTickStyle.Color = Colors.Blue;
         MainPlot.Plot.Axes.Right.TickLabelStyle.ForeColor = Colors.Blue;
 
-        MainPlot.Plot.Legend.FontSize = 16;
+        MainPlot.Plot.Grid.MajorLineColor = Colors.Green.WithOpacity(.3);
+        MainPlot.Plot.Grid.MajorLineWidth = 2;
+
+        MainPlot.Plot.Grid.MinorLineColor = Colors.Gray.WithOpacity(.1);
+        MainPlot.Plot.Grid.MinorLineWidth = 1;
+
+        MainPlot.Plot.Legend.FontSize = 22;
+        _timeLegendItem = new LegendItem()
+        {
+            LabelText = "Current Time: 0s",
+        };
+        MainPlot.Plot.Legend.ManualItems.Add(_timeLegendItem);
 
 
         _phLogger = MainPlot.Plot.Add.DataLogger();
@@ -203,6 +218,7 @@ public partial class MainWindow : Window
         var CondValue = double.TryParse(parts[1], out var cond) ? cond : 0;
         _conductivityLogger.Add(time, CondValue);
         _conductivityLogger.LegendText = $"Current Cond: {CondValue}";
+        _timeLegendItem.LabelText = $"Current Time: {time}s";
         _dataCount++;
         dataCountLabel.Content = $"已接收数据: {_dataCount}个";
     }
@@ -216,6 +232,7 @@ public partial class MainWindow : Window
         var pHValue = double.TryParse(parts[1], out var pH) ? pH : 0;
         _phLogger.Add(time, pHValue);
         _phLogger.LegendText = $"Current pH: {pHValue}";
+        _timeLegendItem.LabelText = $"Current Time: {time}s";
         _dataCount++;
         dataCountLabel.Content = $"已接收数据: {_dataCount}个";
     }
@@ -232,20 +249,21 @@ public partial class MainWindow : Window
             {
                 var time = int.TryParse(parts[0].Replace("s", ""), out var t) ? t : 0;
                 var pHValue = double.TryParse(parts[2], out var pH) ? pH : 0;
-                if (_dataRecord1 == null) _dataRecord1 = new DataRecord1 { Time = time, PHValue = pHValue };
+                if (_partialDataRecord == null) _partialDataRecord = new PartialDataRecord { Time = time, PHValue = pHValue };
             }
             else if (parts[0] == "2" && parts.Length >= 2)
             {
                 var conductivityValue = double.TryParse(parts[1], out var cond) ? cond : 0;
-                if (_dataRecord1 != null)
+                if (_partialDataRecord != null)
                 {
-                    _phLogger.Add(_dataRecord1.Time, _dataRecord1.PHValue);
-                    _phLogger.LegendText = $"Current pH: {_dataRecord1.PHValue}";
-                    _conductivityLogger.Add(_dataRecord1.Time, conductivityValue);
+                    _phLogger.Add(_partialDataRecord.Time, _partialDataRecord.PHValue);
+                    _phLogger.LegendText = $"Current pH: {_partialDataRecord.PHValue}";
+                    _conductivityLogger.Add(_partialDataRecord.Time, conductivityValue);
                     _conductivityLogger.LegendText = $"Current Cond: {conductivityValue}";
+                    _timeLegendItem.LabelText = $"Current Time: {_partialDataRecord.Time}s";
                     _dataCount++;
                     dataCountLabel.Content = $"已接收数据: {_dataCount}个";
-                    _dataRecord1 = null;
+                    _partialDataRecord = null;
                 }
             }
         }
@@ -352,7 +370,8 @@ public partial class MainWindow : Window
             _currentMode = CollectMode.PH_AND_COND;
         else if (CollectModeCombox.SelectedIndex == 1)
             _currentMode = CollectMode.PH_ONLY;
-        else if (CollectModeCombox.SelectedIndex == 2) _currentMode = CollectMode.COND_ONLY;
+        else if (CollectModeCombox.SelectedIndex == 2)
+            _currentMode = CollectMode.COND_ONLY;
 
         try
         {
@@ -417,7 +436,7 @@ public partial class MainWindow : Window
 
     private void MainWindow_Closing(object sender, CancelEventArgs e)
     {
-        if (FluentMessageBox.Show("未导出的数据可能丢失", "确认退出",
+        if (FluentMessageBox.Show("数据导出了吗？", "确认退出",
                 MessageBoxButton.OKCancel, MessageBoxImage.Warning, this) != MessageBoxResult.OK)
         {
             if (_serialPort.IsOpen)
@@ -540,7 +559,8 @@ public partial class MainWindow : Window
 
     private void Button_ReadOrigindata(object sender, RoutedEventArgs e)
     {
-        FluentMessageBox.Show("前面的区域以后再来探索吧", "提示", MessageBoxButton.OK, MessageBoxImage.Information, this);
+        var recoverDataWindow = new RecoverData();
+        recoverDataWindow.Show();
     }
 
     private void Button_SampleSetting(object sender, RoutedEventArgs e)
@@ -570,6 +590,7 @@ public partial class MainWindow : Window
             _conductivityLogger.Add(time, cond);
             await Task.Delay(100);
             MainPlot.Refresh();
+            _timeLegendItem.LabelText = $"Current Time: {time}s";
         }
     }
 }
@@ -581,7 +602,7 @@ public enum CollectMode
     COND_ONLY
 }
 
-public class DataRecord1
+public class PartialDataRecord
 {
     public int Time { get; set; }
     public double PHValue { get; set; }

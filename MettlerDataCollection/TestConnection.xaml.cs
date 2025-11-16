@@ -1,4 +1,5 @@
 ﻿using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.IO.Ports;
 using System.Text;
 using System.Windows;
@@ -116,5 +117,15 @@ public partial class TestConnection : Window
         {
             Log.Error($"串口接收错误: {ex.Message}");
         }
+    }
+
+    protected override void OnClosing(CancelEventArgs e)
+    {
+        if (serialPort.IsOpen)
+        {
+            serialPort.Close();
+            Log.Information($"TestConnection-窗口关闭时串口 {SelectedComport} 已关闭。");
+        }
+        base.OnClosing(e);
     }
 }
