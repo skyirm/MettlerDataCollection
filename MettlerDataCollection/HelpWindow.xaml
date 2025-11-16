@@ -65,7 +65,7 @@
                         <System:String>点击“连接”按钮建立连接。</System:String>
                         <System:String>选择采集模式（pH+电导率、pH 或 电导率）。</System:String>
                         <System:String>点击“开始采集”按钮开始数据采集。</System:String>
-                        <System:String>在S470开始间隔测量方法，方法设置中务必勾选间隔后打印</System:String>
+                        <System:String>在S470开始间隔测量方法，方法设置中务必勾选间隔后打印。</System:String>
                         <System:String>点击“停止采集”结束数据采集。</System:String>
                         <System:String>点击“导出数据”按钮保存为 txt 文件。</System:String>
                     </ItemsControl>
@@ -91,7 +91,7 @@
                                    Foreground="#333">
                             为避免丢失数据，在端口连接的情况下，即使未开始采集，
                             软件也会自动将串口接收到的原始消息写入程序目录下的
-                            “origindata” 文件夹中。
+                            “origindata” 文件夹中。可通过文件>导出历史数据恢复。
                         </TextBlock>
                     </Grid>
                 </Border>
