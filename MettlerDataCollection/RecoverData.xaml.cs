@@ -81,6 +81,7 @@ public partial class RecoverData : Window
         if (result == false) return;
 
         var fileName = openFileDialog.FileName;
+        this.FileNameText.Text = Path.GetFileName(fileName);
 
         foreach (var line in await File.ReadAllLinesAsync(fileName, Encoding.UTF8))
         {
