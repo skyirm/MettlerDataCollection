@@ -177,34 +177,34 @@ public partial class RecoverData : Window
             switch (CollectModeCombox.SelectedIndex)
             {
                 case 1:
-                    contentString.AppendLine("Time(s),pH");
+                    contentString.AppendLine("Time(s) pH");
                     foreach (var record in _phLogger.Data.Coordinates)
                     {
                         var time = record.X;
                         var pH = record.Y;
-                        contentString.AppendLine($"{time},{pH},");
+                        contentString.AppendLine($"{time,5} {pH,6},");
                     }
 
                     break;
                 case 2:
-                    contentString.AppendLine("Time(s),Conductivity(µS/cm)");
+                    contentString.AppendLine("Time(s) Conductivity(µS/cm)");
                     foreach (var record in _conductivityLogger.Data.Coordinates)
                     {
                         var time = record.X;
                         var conductivity = record.Y;
-                        contentString.AppendLine($"{time},{conductivity}");
+                        contentString.AppendLine($"{time,5} {conductivity,7}");
                     }
 
                     break;
                 case 0:
-                    contentString.AppendLine("Time(s),pH,Conductivity(µS/cm)");
+                    contentString.AppendLine("Time(s) pH Conductivity(µS/cm)");
                     foreach (var record in _phLogger.Data.Coordinates)
                     {
                         var time = record.X;
                         var pH = record.Y;
                         var conductivityRecord = _conductivityLogger.Data.Coordinates.FirstOrDefault(r => r.X == time);
                         var conductivity = conductivityRecord != null ? conductivityRecord.Y : 0;
-                        contentString.AppendLine($"{time},{pH},{conductivity}");
+                        contentString.AppendLine($"{time,6} {pH,6} {conductivity,7}");
                     }
 
                     break;

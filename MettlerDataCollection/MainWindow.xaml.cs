@@ -481,34 +481,34 @@ public partial class MainWindow : Window
             switch (_currentMode)
             {
                 case CollectMode.PH_ONLY:
-                    contentString.AppendLine("Time(s),pH");
+                    contentString.AppendLine("Time(s) pH");
                     foreach (var record in _phLogger.Data.Coordinates)
                     {
                         var time = record.X;
                         var pH = record.Y;
-                        contentString.AppendLine($"{time},{pH},");
+                        contentString.AppendLine($"{time,5} {pH,7},");
                     }
 
                     break;
                 case CollectMode.COND_ONLY:
-                    contentString.AppendLine("Time(s),Conductivity(µS/cm)");
+                    contentString.AppendLine("Time(s) Conductivity(µS/cm)");
                     foreach (var record in _conductivityLogger.Data.Coordinates)
                     {
                         var time = record.X;
                         var conductivity = record.Y;
-                        contentString.AppendLine($"{time},{conductivity}");
+                        contentString.AppendLine($"{time,5} {conductivity,7}");
                     }
 
                     break;
                 case CollectMode.PH_AND_COND:
-                    contentString.AppendLine("Time(s),pH,Conductivity(µS/cm)");
+                    contentString.AppendLine("Time(s) pH Conductivity(µS/cm)");
                     foreach (var record in _phLogger.Data.Coordinates)
                     {
                         var time = record.X;
                         var pH = record.Y;
                         var conductivityRecord = _conductivityLogger.Data.Coordinates.FirstOrDefault(r => r.X == time);
                         var conductivity = conductivityRecord != null ? conductivityRecord.Y : 0;
-                        contentString.AppendLine($"{time},{pH},{conductivity}");
+                        contentString.AppendLine($"{time,5} {pH,7} {conductivity,7}");
                     }
 
                     break;
