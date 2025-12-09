@@ -429,6 +429,7 @@ public partial class MainWindow : Window
         _isCollecting = false;
         Log.Information("数据采集停止。");
         _dispatcherTimer.Stop();
+        _partialDataRecord = null;
         Btn_StartCollect.IsEnabled = true;
         Btn_StopCollect.IsEnabled = false;
     }
