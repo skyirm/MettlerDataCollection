@@ -509,7 +509,7 @@ public partial class MainWindow : Window
                         var pH = record.Y;
                         var conductivityRecord = _conductivityLogger.Data.Coordinates.FirstOrDefault(r => r.X == time);
                         var conductivity = conductivityRecord != null ? conductivityRecord.Y : 0;
-                        contentString.AppendLine($"{time,5} {pH,7} {conductivity,7}");
+                        contentString.AppendLine($"{time,6} {pH,7} {conductivity,7}");
                     }
 
                     break;
