@@ -55,7 +55,7 @@
                 </ComboBox>
 
                 <!-- 文件按钮 -->
-                <Button Content="读取文件"
+                <Button Content="选择文件"
                         Click="ReadFile"
                         Width="90"
                         Padding="4"
