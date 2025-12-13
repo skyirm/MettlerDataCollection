@@ -80,6 +80,9 @@ public partial class RecoverData : Window
 
         if (result == false) return;
 
+        _conductivityLogger.Clear();
+        _phLogger.Clear();
+
         var fileName = openFileDialog.FileName;
         this.FileNameText.Text = Path.GetFileName(fileName);
 
