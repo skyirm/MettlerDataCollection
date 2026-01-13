@@ -415,7 +415,7 @@ public partial class MainWindow : Window
         _conductivityLogger.Clear();
         dataCountLabel.Content = "已接收数据: 0个";
         _dispatcherTimer.Start();
-        LogFilePath = $"./origindata/{DateTime.Now:yyyyMMdd_HHmmss}.txt";
+        LogFilePath = $"./origindata/{DateTime.Now:yyyyMMdd_HHmmss}-{_sampleNo}.txt";
         MainPlot.Refresh();
         _dataCount = 0;
         _isCollecting = true;
