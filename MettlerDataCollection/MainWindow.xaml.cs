@@ -1,10 +1,11 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.IO;
 using System.IO.Ports;
 using System.Text;
 using System.Windows;
 using System.Windows.Threading;
+using MettlerDataCollection.Properties;
 using Microsoft.Win32;
 using ScottPlot;
 using ScottPlot.DataGenerators;
@@ -61,7 +62,7 @@ public partial class MainWindow : Window
 
     private void CreateOriginDirectory()
     {
-        if (!Directory.Exists("./origindata")) Directory.CreateDirectory("./origindata");
+        if (!Directory.Exists(Settings.Default.DataPath)) Directory.CreateDirectory(Settings.Default.DataPath);
     }
 
     private void InitPlot()
@@ -317,7 +318,7 @@ public partial class MainWindow : Window
         try
         {
             _serialPort.Open();
-            LogFilePath = $"./origindata/{DateTime.Now:yyyyMMdd_HHmmss}.txt";
+            LogFilePath = Path.Combine(Settings.Default.DataPath, $"{DateTime.Now:yyyyMMdd_HHmmss}.txt");
             ComportLabel.Content = $"串口{SelectedComport}已连接。";
             Log.Information($"串口 {SelectedComport} 已打开。");
             ComportCombox.IsEnabled = false;
@@ -415,7 +416,7 @@ public partial class MainWindow : Window
         _conductivityLogger.Clear();
         dataCountLabel.Content = "已接收数据: 0个";
         _dispatcherTimer.Start();
-        LogFilePath = $"./origindata/{DateTime.Now:yyyyMMdd_HHmmss}-{_sampleNo}.txt";
+        LogFilePath = Path.Combine(Settings.Default.DataPath, $"{DateTime.Now:yyyyMMdd_HHmmss}-{_sampleNo}.txt");
         MainPlot.Refresh();
         _dataCount = 0;
         _isCollecting = true;
@@ -566,7 +567,12 @@ public partial class MainWindow : Window
 
     private void Button_SampleSetting(object sender, RoutedEventArgs e)
     {
-        FluentMessageBox.Show("前面的区域以后再来探索吧", "提示", MessageBoxButton.OK, MessageBoxImage.Information, this);
+        var settingWindow = new CollectionSettingWindow
+        {
+            Owner = this,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner
+        };
+        settingWindow.ShowDialog();
     }
 
     private void Button_OpenHelp(object sender, RoutedEventArgs e)

@@ -1,4 +1,5 @@
-﻿using Microsoft.Win32;
+using Microsoft.Win32;
+using MettlerDataCollection.Properties;
 using ScottPlot;
 using ScottPlot.Plottables;
 using Serilog;
@@ -72,7 +73,7 @@ public partial class RecoverData : Window
         var openFileDialog = new OpenFileDialog
         {
             Title = "打开文件",
-            InitialDirectory = System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "origindata"),
+            InitialDirectory = Settings.Default.DataPath,
             DefaultExt = ".txt"
         };
 

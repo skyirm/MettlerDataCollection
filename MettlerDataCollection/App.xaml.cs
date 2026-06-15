@@ -1,5 +1,8 @@
-﻿using System.Windows;
+using System.IO;
+using System.Windows;
 using System.Windows.Threading;
+using MettlerDataCollection.Properties;
+using Microsoft.Win32;
 using Serilog;
 
 namespace MettlerDataCollection;
@@ -22,6 +25,10 @@ public partial class App : Application
         Log.Information("应用程序已启动。");
         PowerManagement.PreventSleepAndDisplayTurnOff(); // 启动时阻止睡眠和关闭屏幕
         base.OnStartup(e);
+
+        // 检查数据存放路径
+        EnsureDataPath();
+
         // 在应用程序启动时执行的代码
 
         // 1. UI线程异常处理
@@ -32,6 +39,45 @@ public partial class App : Application
 
         // 3. Task线程异常处理
         TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
+
+        var mainWindow = new MainWindow();
+        mainWindow.Show();
+    }
+
+    private void EnsureDataPath()
+    {
+        var dataPath = Settings.Default.DataPath;
+
+        while (string.IsNullOrWhiteSpace(dataPath) || !Directory.Exists(dataPath))
+        {
+            var prompt = new DataPathPromptWindow();
+            if (prompt.ShowDialog() != true || !prompt.Selected)
+            {
+                MessageBox.Show("必须设置数据存放路径才能继续使用程序。", "提示",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                continue;
+            }
+
+            var dialog = new OpenFolderDialog
+            {
+                Title = "请选择数据存放路径",
+                Multiselect = false
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                dataPath = dialog.FolderName;
+                Settings.Default.DataPath = dataPath;
+                Settings.Default.Save();
+                Directory.CreateDirectory(dataPath);
+                Log.Information($"数据存放路径已设置为: {dataPath}");
+            }
+            else
+            {
+                MessageBox.Show("必须设置数据存放路径才能继续使用程序。", "提示",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+        }
     }
 
     protected override void OnExit(ExitEventArgs e)

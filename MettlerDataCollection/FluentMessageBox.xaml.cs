@@ -1,4 +1,4 @@
-﻿using System.Drawing;
+using System.Drawing;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Interop;
@@ -32,47 +32,59 @@ public partial class FluentMessageBox : Window
         AddButtons(buttons);
     }
 
+    public FluentMessageBox(string message, string title, string buttonText)
+    {
+        InitializeComponent();
+
+        Title = title;
+        MessageText.Text = message;
+        IconImage.Visibility = Visibility.Collapsed;
+
+        AddButton(buttonText, MessageBoxResult.OK);
+        AddButton("取消", MessageBoxResult.Cancel);
+    }
+
     public MessageBoxResult Result { get; private set; } = MessageBoxResult.None;
+
+    private void AddButton(string text, MessageBoxResult result)
+    {
+        var btn = new Button
+        {
+            Content = text,
+            Width = 80,
+            Margin = new Thickness(5),
+            Padding = new Thickness(6)
+        };
+        btn.Click += (_, _) =>
+        {
+            Result = result;
+            Close();
+        };
+        ButtonPanel.Children.Add(btn);
+    }
 
     private void AddButtons(MessageBoxButton buttons)
     {
-        void Add(string text, MessageBoxResult result)
-        {
-            var btn = new Button
-            {
-                Content = text,
-                Width = 80,
-                Margin = new Thickness(5),
-                Padding = new Thickness(6)
-            };
-            btn.Click += (_, _) =>
-            {
-                Result = result;
-                Close();
-            };
-            ButtonPanel.Children.Add(btn);
-        }
-
         switch (buttons)
         {
             case MessageBoxButton.OK:
-                Add("确定", MessageBoxResult.OK);
+                AddButton("确定", MessageBoxResult.OK);
                 break;
 
             case MessageBoxButton.OKCancel:
-                Add("确定", MessageBoxResult.OK);
-                Add("取消", MessageBoxResult.Cancel);
+                AddButton("确定", MessageBoxResult.OK);
+                AddButton("取消", MessageBoxResult.Cancel);
                 break;
 
             case MessageBoxButton.YesNo:
-                Add("是", MessageBoxResult.Yes);
-                Add("否", MessageBoxResult.No);
+                AddButton("是", MessageBoxResult.Yes);
+                AddButton("否", MessageBoxResult.No);
                 break;
 
             case MessageBoxButton.YesNoCancel:
-                Add("是", MessageBoxResult.Yes);
-                Add("否", MessageBoxResult.No);
-                Add("取消", MessageBoxResult.Cancel);
+                AddButton("是", MessageBoxResult.Yes);
+                AddButton("否", MessageBoxResult.No);
+                AddButton("取消", MessageBoxResult.Cancel);
                 break;
         }
     }
@@ -83,6 +95,17 @@ public partial class FluentMessageBox : Window
         Window owner = null)
     {
         var msg = new FluentMessageBox(message, title, buttons, icon);
+        if (owner != null)
+            msg.Owner = owner;
+
+        msg.ShowDialog();
+        return msg.Result;
+    }
+
+    public static MessageBoxResult Show(string message, string title,
+        string buttonText, Window owner = null)
+    {
+        var msg = new FluentMessageBox(message, title, buttonText);
         if (owner != null)
             msg.Owner = owner;
 
