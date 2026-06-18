@@ -94,5 +94,17 @@ namespace MettlerDataCollection.Properties {
                 this["DataPath"] = value;
             }
         }
+        
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string ExportDataPath {
+            get {
+                return ((string)(this["ExportDataPath"]));
+            }
+            set {
+                this["ExportDataPath"] = value;
+            }
+        }
     }
 }

@@ -468,8 +468,11 @@ public partial class MainWindow : Window
         // 格式: "描述|*.扩展名|描述|*.扩展名"
         saveFileDialog.Filter = "文本文件 (*.txt)|*.txt|所有文件 (*.*)|*.*";
 
-        // 4. 设置初始目录（可选）
-        // saveFileDialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+        // 4. 设置初始目录
+        if (!string.IsNullOrWhiteSpace(Settings.Default.ExportDataPath) && Directory.Exists(Settings.Default.ExportDataPath))
+        {
+            saveFileDialog.InitialDirectory = Settings.Default.ExportDataPath;
+        }
 
         // **显示对话框**
         var result = saveFileDialog.ShowDialog();
@@ -479,6 +482,10 @@ public partial class MainWindow : Window
         {
             // 获取用户选择的文件路径（包含文件名）
             var filename = saveFileDialog.FileName;
+
+            // 更新导出数据目录
+            Settings.Default.ExportDataPath = Path.GetDirectoryName(filename);
+            Settings.Default.Save();
 
             switch (_currentMode)
             {
