@@ -25,9 +25,7 @@ public partial class App : Application
         Log.Information("应用程序已启动。");
         PowerManagement.PreventSleepAndDisplayTurnOff(); // 启动时阻止睡眠和关闭屏幕
         base.OnStartup(e);
-
-        // 检查数据存放路径
-        EnsureDataPath();
+        
 
         // 在应用程序启动时执行的代码
 
@@ -42,6 +40,7 @@ public partial class App : Application
 
         var mainWindow = new MainWindow();
         mainWindow.Show();
+        EnsureDataPath();
     }
 
     private void EnsureDataPath()
@@ -50,13 +49,13 @@ public partial class App : Application
 
         while (string.IsNullOrWhiteSpace(dataPath) || !Directory.Exists(dataPath))
         {
-            var prompt = new DataPathPromptWindow();
-            if (prompt.ShowDialog() != true || !prompt.Selected)
-            {
-                MessageBox.Show("必须设置数据存放路径才能继续使用程序。", "提示",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
-                continue;
-            }
+            //var prompt = new DataPathPromptWindow();
+            //if (prompt.ShowDialog() != true || !prompt.Selected)
+            //{
+            //    MessageBox.Show("必须设置数据存放路径才能继续使用程序。", "提示",
+            //        MessageBoxButton.OK, MessageBoxImage.Warning);
+            //    continue;
+            //}
 
             var dialog = new OpenFolderDialog
             {

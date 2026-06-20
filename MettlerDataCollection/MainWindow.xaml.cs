@@ -51,7 +51,7 @@ public partial class MainWindow : Window
         _watcher.Start();
         HandleComPortsChanged(new List<string>(SerialPort.GetPortNames()));
 
-        CreateOriginDirectory();
+
 
         InitPlot();
         InitSerialPort();
@@ -354,6 +354,7 @@ public partial class MainWindow : Window
 
     private void Button_StartCollect(object sender, RoutedEventArgs e)
     {
+        CreateOriginDirectory();
         if (!_serialPort.IsOpen)
         {
             FluentMessageBox.Show("请先连接串口", "提示", MessageBoxButton.OK, MessageBoxImage.Warning, this);
