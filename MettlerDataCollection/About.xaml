@@ -24,7 +24,7 @@
 
             <!-- 顶部标题 -->
             <StackPanel Grid.Row="0" Margin="0,10,0,20" HorizontalAlignment="Center">
-                <TextBlock Text="Mettler S470 Data Collector"
+                <TextBlock Text="Mettler S470 MeasureData Collector"
                            FontSize="20"
                            FontWeight="Bold"
                            Foreground="#2D2D2D"

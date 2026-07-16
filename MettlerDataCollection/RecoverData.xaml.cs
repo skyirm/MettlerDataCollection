@@ -70,30 +70,47 @@ public partial class RecoverData : Window
 
     private async void ReadFile(object sender, RoutedEventArgs e)
     {
-        var openFileDialog = new OpenFileDialog
+        try
         {
-            Title = "打开文件",
-            InitialDirectory = Settings.Default.DataPath,
-            DefaultExt = ".txt"
-        };
+            var openFileDialog = new OpenFileDialog
+            {
+                Title = "打开文件",
+                InitialDirectory = Settings.Default.DataPath,
+                DefaultExt = ".txt"
+            };
 
-        var result = openFileDialog.ShowDialog();
+            var result = openFileDialog.ShowDialog();
 
-        if (result == false) return;
+            if (result == false) return;
 
-        _conductivityLogger.Clear();
-        _phLogger.Clear();
+            _conductivityLogger.Clear();
+            _phLogger.Clear();
 
-        var fileName = openFileDialog.FileName;
-        this.FileNameText.Text = Path.GetFileName(fileName);
+            var fileName = openFileDialog.FileName;
+            if (!File.Exists(fileName))
+            {
+                FluentMessageBox.Show("文件不存在。", "错误", MessageBoxButton.OK, MessageBoxImage.Error, this);
+                return;
+            }
 
-        foreach (var line in await File.ReadAllLinesAsync(fileName, Encoding.UTF8))
-        {
-            var parts = line.Split('|');
-            ProcessRecord(parts[1]);
+            this.FileNameText.Text = Path.GetFileName(fileName);
+
+            foreach (var line in await File.ReadAllLinesAsync(fileName, Encoding.UTF8))
+            {
+                var parts = line.Split('|');
+                if (parts.Length >= 2)
+                {
+                    ProcessRecord(parts[1]);
+                }
+            }
+
+            MainPlot.Refresh();
         }
-
-        MainPlot.Refresh();
+        catch (Exception ex)
+        {
+            Log.Error($"读取文件时发生错误: {ex.Message}");
+            FluentMessageBox.Show($"读取文件时发生错误: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error, this);
+        }
     }
 
     private void ProcessRecord(string completeRecord)
@@ -186,7 +203,7 @@ public partial class RecoverData : Window
                     {
                         var time = record.X;
                         var pH = record.Y;
-                        contentString.AppendLine($"{time,5} {pH,6},");
+                        contentString.AppendLine($"{time,5} {pH,6}");
                     }
 
                     break;

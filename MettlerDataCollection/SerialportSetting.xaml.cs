@@ -1,4 +1,4 @@
-﻿using System.IO.Ports;
+using System.IO.Ports;
 using System.Windows;
 using System.Windows.Controls;
 using MettlerDataCollection.Properties;
@@ -69,6 +69,20 @@ public partial class SerialportSetting : Window
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
+        if (BaudRateBox.SelectedItem == null || DataBitsBox.SelectedItem == null ||
+            ParityBox.SelectedItem == null || StopBitsBox.SelectedItem == null ||
+            HandshakeBox.SelectedItem == null)
+        {
+            MessageBox.Show("请确保所有设置项都已选择。", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+
+        if (_serialPort.IsOpen)
+        {
+            MessageBox.Show("请先关闭串口再修改设置。", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+            return;
+        }
+
         var s = Settings.Default;
 
         s.BaudRate = int.Parse(((ComboBoxItem)BaudRateBox.SelectedItem).Content.ToString());

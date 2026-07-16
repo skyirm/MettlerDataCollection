@@ -14,8 +14,9 @@ using Serilog;
 
 namespace MettlerDataCollection;
 
-public partial class MainWindow : Window
+public partial class MainWindow : Window, IDisposable
 {
+    private bool _disposed;
     private const string RecordDelimiter = "\r\n";
     private readonly object _bufferLock = new();
 
@@ -25,14 +26,32 @@ public partial class MainWindow : Window
     private readonly object _fileLock = new();
     private readonly SerialPort _serialPort = new();
     private readonly DispatcherTimer _dispatcherTimer = new();
+    private readonly object _logFilePathLock = new();
+    private string _logFilePath = $"./log/{DateTime.Now:yyyyMMdd_HHmmss}.txt";
 
     private CollectMode _currentMode = CollectMode.PH_AND_COND;
-    private int _dataCount;
-    private bool _isCollecting;
+    private volatile int _dataCount;
+    private volatile bool _isCollecting;
     private DataLogger _conductivityLogger;
     private PartialDataRecord? _partialDataRecord;
 
-    public string LogFilePath = $"./log/{DateTime.Now:yyyyMMdd_HHmmss}.txt";
+    public string LogFilePath
+    {
+        get
+        {
+            lock (_logFilePathLock)
+            {
+                return _logFilePath;
+            }
+        }
+        set
+        {
+            lock (_logFilePathLock)
+            {
+                _logFilePath = value;
+            }
+        }
+    }
 
     private DataLogger _phLogger;
     private string _sampleNo = string.Empty;
@@ -442,13 +461,16 @@ public partial class MainWindow : Window
         if (FluentMessageBox.Show("数据导出了吗？", "确认退出",
                 MessageBoxButton.OKCancel, MessageBoxImage.Warning, this) != MessageBoxResult.OK)
         {
+            e.Cancel = true;
+        }
+        else
+        {
             if (_serialPort.IsOpen)
             {
                 _serialPort.Close();
                 Log.Information($"串口 {SelectedComport} 已关闭。");
             }
-
-            e.Cancel = true;
+            _watcher.Stop();
         }
     }
 
@@ -496,7 +518,7 @@ public partial class MainWindow : Window
                     {
                         var time = record.X;
                         var pH = record.Y;
-                        contentString.AppendLine($"{time,5} {pH,7},");
+                        contentString.AppendLine($"{time,5} {pH,7}");
                     }
 
                     break;
@@ -607,6 +629,33 @@ public partial class MainWindow : Window
             MainPlot.Refresh();
             _timeLegendItem.LabelText = $"Current Time: {time}s";
         }
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!_disposed)
+        {
+            if (disposing)
+            {
+                _dispatcherTimer.Stop();
+                _watcher.Stop();
+                _watcher.Dispose();
+                if (_serialPort.IsOpen) _serialPort.Close();
+                _serialPort.Dispose();
+            }
+            _disposed = true;
+        }
+    }
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    ~MainWindow()
+    {
+        Dispose(false);
     }
 }
 

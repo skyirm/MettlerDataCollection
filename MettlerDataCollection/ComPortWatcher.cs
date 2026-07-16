@@ -1,10 +1,12 @@
 ﻿using System.IO.Ports;
 using System.Management;
+using Serilog;
 
 namespace MettlerDataCollection;
 
-public class ComPortWatcher
+public class ComPortWatcher : IDisposable
 {
+    private bool _disposed;
     // 监听的时间间隔（秒）
     private const int PollingInterval = 1;
 
@@ -46,11 +48,11 @@ public class ComPortWatcher
         {
             _insertWatcher.Start();
             _removeWatcher.Start();
-            Console.WriteLine("COM 端口变化监听已启动...");
+            Serilog.Log.Information("COM 端口变化监听已启动...");
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"启动 WMI 监听失败: {ex.Message}");
+            Serilog.Log.Error($"启动 WMI 监听失败: {ex.Message}");
         }
     }
 
@@ -59,7 +61,31 @@ public class ComPortWatcher
     {
         if (_insertWatcher != null) _insertWatcher.Stop();
         if (_removeWatcher != null) _removeWatcher.Stop();
-        Console.WriteLine("COM 端口变化监听已停止。");
+        Serilog.Log.Information("COM 端口变化监听已停止。");
+    }
+
+    public void Dispose()
+    {
+        Dispose(true);
+        GC.SuppressFinalize(this);
+    }
+
+    protected virtual void Dispose(bool disposing)
+    {
+        if (!_disposed)
+        {
+            if (disposing)
+            {
+                _insertWatcher?.Dispose();
+                _removeWatcher?.Dispose();
+            }
+            _disposed = true;
+        }
+    }
+
+    ~ComPortWatcher()
+    {
+        Dispose(false);
     }
 
     // 设备事件到达时触发
