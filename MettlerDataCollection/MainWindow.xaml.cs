@@ -5,6 +5,7 @@ using System.IO.Ports;
 using System.Text;
 using System.Windows;
 using System.Windows.Threading;
+using MettlerDataCollection.Device;
 using MettlerDataCollection.Properties;
 using MettlerDataCollection.Services;
 using Microsoft.Win32;
@@ -18,15 +19,12 @@ namespace MettlerDataCollection;
 public partial class MainWindow : Window, IDisposable
 {
     private bool _disposed;
-    private const string RecordDelimiter = "\r\n";
-    private readonly object _bufferLock = new();
-
-    private readonly StringBuilder _receiveBuffer = new();
 
     private readonly ComPortWatcher _watcher;
     private readonly SerialPort _serialPort = new();
     private readonly DispatcherTimer _dispatcherTimer = new();
     private readonly IDataPersistenceService _persistenceService;
+    private readonly S470K _s470K = new();
 
     private CollectMode _currentMode = CollectMode.PH_AND_COND;
     private volatile int _dataCount;
@@ -157,30 +155,15 @@ public partial class MainWindow : Window, IDisposable
         {
             var newData = _serialPort.ReadExisting();
 
-            lock (_bufferLock)
+            // 立刻 foreach（S470K 内部有半行 buffer，延迟迭代会破坏状态机）。
+            foreach (var completeRecord in _s470K.PreprocessData(newData))
             {
-                _receiveBuffer.Append(newData);
-
-                var bufferStr = _receiveBuffer.ToString();
-                int delimiterIndex;
-
-                // 不断查找完整的记录
-                while ((delimiterIndex = bufferStr.IndexOf(RecordDelimiter)) >= 0)
+                if (!string.IsNullOrEmpty(completeRecord))
                 {
-                    var completeRecord = bufferStr[..delimiterIndex].Trim();
-                    bufferStr = bufferStr[(delimiterIndex + RecordDelimiter.Length)..];
-
-                    if (!string.IsNullOrEmpty(completeRecord))
-                    {
-                        // 在 UI 线程处理完整记录
-                        if (_isCollecting) Dispatcher.BeginInvoke(() => ProcessCompleteRecord(completeRecord));
-                        _persistenceService.WriteRecord(completeRecord);
-                    }
+                    // 在 UI 线程处理完整记录
+                    if (_isCollecting) Dispatcher.BeginInvoke(() => ProcessCompleteRecord(completeRecord));
+                    _persistenceService.WriteRecord(completeRecord);
                 }
-
-                // 剩下不完整的数据保留
-                _receiveBuffer.Clear();
-                _receiveBuffer.Append(bufferStr);
             }
         }
         catch (Exception ex)
@@ -349,36 +332,23 @@ public partial class MainWindow : Window, IDisposable
         try
         {
             // === 1️⃣ 清理串口残留数据 ===
-            // 把硬件 FIFO 和内存半行缓冲里的数据全部抢救出来，写到当前文件（上一份实验）里。
+            // 把硬件 FIFO 里的数据抢救出来，合并 S470K 内部半行 buffer 切成完整行，写到当前文件（上一份实验）里。
             // 注意：必须在 _persistenceService.StartNewFile(...) 之前执行，
             //      否则残留数据会污染新实验的文件。
-            var remainingData = string.Empty;
-
-            // 尝试读取残留接收缓冲区
-            if (_serialPort.BytesToRead > 0) remainingData = _serialPort.ReadExisting();
-
-            // 如果还有内存缓冲里的数据
-            lock (_bufferLock)
+            if (_serialPort.BytesToRead > 0)
             {
-                if (_receiveBuffer.Length > 0)
+                var chunk = _serialPort.ReadExisting();
+                var rescued = 0;
+                foreach (var line in _s470K.PreprocessData(chunk))
                 {
-                    remainingData += _receiveBuffer.ToString();
-                    _receiveBuffer.Clear();
+                    if (!string.IsNullOrWhiteSpace(line))
+                    {
+                        _persistenceService.WriteRecord(line);
+                        rescued++;
+                    }
                 }
-            }
-
-            // 如果有未处理的数据，写入硬盘保存
-            if (!string.IsNullOrWhiteSpace(remainingData))
-            {
-                var records = remainingData.Split(new[] { "\r\n" }, StringSplitOptions.RemoveEmptyEntries);
-                foreach (var record in records)
-                {
-                    var trimmed = record.Trim();
-                    if (!string.IsNullOrEmpty(trimmed))
-                        _persistenceService.WriteRecord(trimmed);
-                }
-
-                Log.Information("已保存停止期间积累的残留数据。");
+                if (rescued > 0)
+                    Log.Information($"已保存停止期间积累的残留数据 ({rescued} 条)。");
             }
         }
         catch (Exception ex)

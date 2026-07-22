@@ -8,10 +8,48 @@ namespace MettlerDataCollection.Device
 {
     public class S470K : IDevice
     {
+        private const string RecordDelimiter = "\r\n";
+        private readonly object _bufferLock = new();
+        private readonly StringBuilder _receiveBuffer = new();
+
         public string Name => "S470-K";
         public string Description => "S470-K is a device that measures pH and Conductivity.";
         public event Action<MeasureData>? OnDataProduced;
         private PartialData? _data1 = null;
+
+        /// <summary>
+        ///     把串口原始 chunk 切成 0..N 个完整行。
+        ///     半行（没遇到 \r\n）保留在内部 buffer，下次 PreprocessData 时继续拼。
+        /// </summary>
+        public IEnumerable<string> PreprocessData(string chunk)
+        {
+            // 一次性收集所有完整行返回，避免调用方延迟迭代（LINQ 链式会延迟到枚举时才访问 buffer）。
+            var lines = new List<string>();
+
+            lock (_bufferLock)
+            {
+                _receiveBuffer.Append(chunk);
+
+                var bufferStr = _receiveBuffer.ToString();
+                int delimiterIndex;
+
+                while ((delimiterIndex = bufferStr.IndexOf(RecordDelimiter)) >= 0)
+                {
+                    var completeLine = bufferStr[..delimiterIndex].Trim();
+                    bufferStr = bufferStr[(delimiterIndex + RecordDelimiter.Length)..];
+
+                    if (!string.IsNullOrEmpty(completeLine))
+                        lines.Add(completeLine);
+                }
+
+                // 剩下不完整的数据保留
+                _receiveBuffer.Clear();
+                _receiveBuffer.Append(bufferStr);
+            }
+
+            return lines;
+        }
+
         public void ReceiveData(string dataString)
         {
             var parts = dataString.Split(' ', StringSplitOptions.RemoveEmptyEntries);
