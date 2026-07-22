@@ -152,6 +152,11 @@ public partial class MainWindow : Window, IDisposable
         _phLogger.LegendText = "Current pH: 0";
         _conductivityLogger.LegendText = "Current Cond: 0";
 
+        // 关闭 X 轴自动扩轴：ViewSlide 在 WasRendered=false 时会用 data range 覆盖 axis，
+        // 导致窗口不滑动。我们自己手动控制 X 轴（见 DispatcherTimerTick.ApplyLatestWindow），
+        // 所以这里关掉自动管理。
+        _phLogger.ManageAxisLimits = false;
+        _conductivityLogger.ManageAxisLimits = false;
 
         MainPlot.Refresh();
     }
@@ -176,11 +181,25 @@ public partial class MainWindow : Window, IDisposable
         }
         else if (showSlide.IsChecked == true)
         {
-            _phLogger.ViewSlide(200);
-            _conductivityLogger.ViewSlide(200);
+            ApplyLatestWindow(200);
         }
 
         MainPlot.Refresh();
+    }
+
+    /// <summary>
+    ///     把 X 轴设成"最近 width 秒"窗口。pH 和电导率 logger 共享同一时间轴，只需设一次。
+    ///     不用 <see cref="DataLogger.ViewSlide" />：它在 WasRendered=false 时会用 data range
+    ///     覆盖 axis，导致窗口卡在 data range 不滑动（每 tick 调一次更明显）。
+    /// </summary>
+    private void ApplyLatestWindow(double width)
+    {
+        var coords = _phLogger.Data.Coordinates;
+        if (coords.Count == 0) return;
+        var latestX = coords[coords.Count - 1].X;
+        var xAxis = MainPlot.Plot.Axes.Bottom;
+        xAxis.Min = latestX - width;
+        xAxis.Max = latestX;
     }
 
     private void HandleComPortsChanged(List<string> list)
