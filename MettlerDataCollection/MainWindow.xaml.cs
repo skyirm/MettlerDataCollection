@@ -349,7 +349,9 @@ public partial class MainWindow : Window, IDisposable
         try
         {
             // === 1️⃣ 清理串口残留数据 ===
-            _serialPort.DiscardOutBuffer(); // 清发送缓冲
+            // 把硬件 FIFO 和内存半行缓冲里的数据全部抢救出来，写到当前文件（上一份实验）里。
+            // 注意：必须在 _persistenceService.StartNewFile(...) 之前执行，
+            //      否则残留数据会污染新实验的文件。
             var remainingData = string.Empty;
 
             // 尝试读取残留接收缓冲区
