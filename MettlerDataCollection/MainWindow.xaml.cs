@@ -6,6 +6,7 @@ using System.Text;
 using System.Windows;
 using System.Windows.Threading;
 using MettlerDataCollection.Properties;
+using MettlerDataCollection.Services;
 using Microsoft.Win32;
 using ScottPlot;
 using ScottPlot.DataGenerators;
@@ -23,11 +24,9 @@ public partial class MainWindow : Window, IDisposable
     private readonly StringBuilder _receiveBuffer = new();
 
     private readonly ComPortWatcher _watcher;
-    private readonly object _fileLock = new();
     private readonly SerialPort _serialPort = new();
     private readonly DispatcherTimer _dispatcherTimer = new();
-    private readonly object _logFilePathLock = new();
-    private string _logFilePath = $"./log/{DateTime.Now:yyyyMMdd_HHmmss}.txt";
+    private readonly IDataPersistenceService _persistenceService;
 
     private CollectMode _currentMode = CollectMode.PH_AND_COND;
     private volatile int _dataCount;
@@ -35,30 +34,14 @@ public partial class MainWindow : Window, IDisposable
     private DataLogger _conductivityLogger;
     private PartialDataRecord? _partialDataRecord;
 
-    public string LogFilePath
-    {
-        get
-        {
-            lock (_logFilePathLock)
-            {
-                return _logFilePath;
-            }
-        }
-        set
-        {
-            lock (_logFilePathLock)
-            {
-                _logFilePath = value;
-            }
-        }
-    }
-
     private DataLogger _phLogger;
     private string _sampleNo = string.Empty;
     private LegendItem _timeLegendItem;
 
-    public MainWindow()
+    public MainWindow(IDataPersistenceService persistenceService)
     {
+        _persistenceService = persistenceService;
+
         InitializeComponent();
         DataContext = this;
 
@@ -191,7 +174,7 @@ public partial class MainWindow : Window, IDisposable
                     {
                         // 在 UI 线程处理完整记录
                         if (_isCollecting) Dispatcher.BeginInvoke(() => ProcessCompleteRecord(completeRecord));
-                        WriteDataToFile(completeRecord);
+                        _persistenceService.WriteRecord(completeRecord);
                     }
                 }
 
@@ -293,36 +276,6 @@ public partial class MainWindow : Window, IDisposable
         }
     }
 
-    private void WriteDataToFile(string completeRecord)
-    {
-        lock (_fileLock)
-        {
-            try
-            {
-                var logEntry = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss.fff}| {completeRecord}{Environment.NewLine}";
-
-                // FileStream 确保我们可以控制 Flush
-                // FileMode.Append: 如果文件存在则追加，否则创建
-                using (var stream = new FileStream(LogFilePath, FileMode.Append, FileAccess.Write, FileShare.None))
-                using (var writer = new StreamWriter(stream, Encoding.UTF8))
-                {
-                    writer.Write(logEntry);
-
-                    // 强制将 StreamWriter 缓冲区数据写入 FileStream 缓冲区
-                    writer.Flush();
-
-                    // 强制将 FileStream 缓冲区数据写入到操作系统文件系统缓冲区 (最关键的防断电步骤)
-                    // 参数 true 表示同时刷新底层操作系统缓冲区
-                    stream.Flush(true);
-                }
-            }
-            catch (IOException ex)
-            {
-                Log.Error($"写入数据文件时发生错误: {ex.Message}");
-            }
-        }
-    }
-
     private void Button_OpenPort(object sender, RoutedEventArgs e)
     {
         if (_serialPort.IsOpen) return;
@@ -337,7 +290,6 @@ public partial class MainWindow : Window, IDisposable
         try
         {
             _serialPort.Open();
-            LogFilePath = Path.Combine(Settings.Default.DataPath, $"{DateTime.Now:yyyyMMdd_HHmmss}.txt");
             ComportLabel.Content = $"串口{SelectedComport}已连接。";
             Log.Information($"串口 {SelectedComport} 已打开。");
             ComportCombox.IsEnabled = false;
@@ -421,7 +373,7 @@ public partial class MainWindow : Window, IDisposable
                 {
                     var trimmed = record.Trim();
                     if (!string.IsNullOrEmpty(trimmed))
-                        WriteDataToFile(trimmed);
+                        _persistenceService.WriteRecord(trimmed);
                 }
 
                 Log.Information("已保存停止期间积累的残留数据。");
@@ -436,7 +388,7 @@ public partial class MainWindow : Window, IDisposable
         _conductivityLogger.Clear();
         dataCountLabel.Content = "已接收数据: 0个";
         _dispatcherTimer.Start();
-        LogFilePath = Path.Combine(Settings.Default.DataPath, $"{DateTime.Now:yyyyMMdd_HHmmss}-{_sampleNo}.txt");
+        _persistenceService.StartNewFile(_sampleNo, Settings.Default.DataPath);
         MainPlot.Refresh();
         _dataCount = 0;
         _isCollecting = true;
@@ -642,6 +594,7 @@ public partial class MainWindow : Window, IDisposable
                 _watcher.Dispose();
                 if (_serialPort.IsOpen) _serialPort.Close();
                 _serialPort.Dispose();
+                _persistenceService.Stop();
             }
             _disposed = true;
         }

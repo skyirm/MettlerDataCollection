@@ -2,6 +2,7 @@ using System.IO;
 using System.Windows;
 using System.Windows.Threading;
 using MettlerDataCollection.Properties;
+using MettlerDataCollection.Services;
 using Microsoft.Win32;
 using Serilog;
 
@@ -38,7 +39,7 @@ public partial class App : Application
         // 3. Task线程异常处理
         TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
 
-        var mainWindow = new MainWindow();
+        var mainWindow = new MainWindow(new DataPersistenceService());
         mainWindow.Show();
         EnsureDataPath();
     }
