@@ -26,11 +26,9 @@ public partial class MainWindow : Window, IDisposable
     private readonly IDataPersistenceService _persistenceService;
     private readonly S470K _s470K = new();
 
-    private CollectMode _currentMode = CollectMode.PH_AND_COND;
     private volatile int _dataCount;
     private volatile bool _isCollecting;
     private DataLogger _conductivityLogger;
-    private PartialDataRecord? _partialDataRecord;
 
     private DataLogger _phLogger;
     private string _sampleNo = string.Empty;
@@ -52,6 +50,8 @@ public partial class MainWindow : Window, IDisposable
         HandleComPortsChanged(new List<string>(SerialPort.GetPortNames()));
 
         _s470K.OnLinePreprocessed += OnLinePreprocessed;
+        _s470K.OnDataProduced += OnDataProduced;
+        _s470K.OnParseError += OnParseError;
 
         InitPlot();
         InitSerialPort();
@@ -60,10 +60,32 @@ public partial class MainWindow : Window, IDisposable
 
     private void OnLinePreprocessed(string line)
     {
-        // _isCollecting 在"清残留数据"阶段是 false，handler 只写盘不更新 plot，
-        // 保证上一份实验的残留数据不污染新实验的 plot。
-        if (_isCollecting) Dispatcher.BeginInvoke(() => ProcessCompleteRecord(line));
+        // 写盘永远做（写盘逻辑在 _persistenceService 内部已做 Flush 防断电）
         _persistenceService.WriteRecord(line);
+        // 解析：S470K.ParseData 根据 CurrentMode 分支，成功触发 OnDataProduced 更新 plot。
+        // _isCollecting=false（清残留阶段）时不调 ParseData，避免给上份实验的残留数据配对、污染 plot。
+        if (_isCollecting) _s470K.ParseData(line);
+    }
+
+    private void OnDataProduced(MeasureData data)
+    {
+        Dispatcher.BeginInvoke(() => AddDataPoint(data));
+    }
+
+    private void OnParseError(string error)
+    {
+        Log.Error($"数据解析错误: {error}");
+    }
+
+    private void AddDataPoint(MeasureData data)
+    {
+        _phLogger.Add(data.Time, data.Ph);
+        _phLogger.LegendText = $"Current pH: {data.Ph}";
+        _conductivityLogger.Add(data.Time, data.Conductivity);
+        _conductivityLogger.LegendText = $"Current Cond: {data.Conductivity}";
+        _timeLegendItem.LabelText = $"Current Time: {data.Time}s";
+        _dataCount++;
+        dataCountLabel.Content = $"已接收数据: {_dataCount}个";
     }
 
     public string SelectedComport { get; set; }
@@ -172,93 +194,6 @@ public partial class MainWindow : Window, IDisposable
         }
     }
 
-    private void ProcessCompleteRecord(string completeRecord)
-    {
-        try
-        {
-            switch (_currentMode)
-            {
-                case CollectMode.PH_AND_COND:
-                    ProcessPhAndCondRecord(completeRecord);
-                    break;
-                case CollectMode.PH_ONLY:
-                    ProcessPhRecord(completeRecord);
-                    break;
-                case CollectMode.COND_ONLY:
-                    ProcessCondRecord(completeRecord);
-                    break;
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Error($"数据解析异常: {ex.Message}");
-        }
-    }
-
-    private void ProcessCondRecord(string completeRecord)
-    {
-        var parts = completeRecord.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length < 2)
-            return;
-        var time = int.TryParse(parts[0].Replace("s", ""), out var _t) ? _t : 0;
-        var CondValue = double.TryParse(parts[1], out var cond) ? cond : 0;
-        _conductivityLogger.Add(time, CondValue);
-        _conductivityLogger.LegendText = $"Current Cond: {CondValue}";
-        _timeLegendItem.LabelText = $"Current Time: {time}s";
-        _dataCount++;
-        dataCountLabel.Content = $"已接收数据: {_dataCount}个";
-    }
-
-    private void ProcessPhRecord(string completeRecord)
-    {
-        var parts = completeRecord.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-        if (parts.Length < 2)
-            return;
-        var time = int.TryParse(parts[0].Replace("s", ""), out var _t) ? _t : 0;
-        var pHValue = double.TryParse(parts[1], out var pH) ? pH : 0;
-        _phLogger.Add(time, pHValue);
-        _phLogger.LegendText = $"Current pH: {pHValue}";
-        _timeLegendItem.LabelText = $"Current Time: {time}s";
-        _dataCount++;
-        dataCountLabel.Content = $"已接收数据: {_dataCount}个";
-    }
-
-    private void ProcessPhAndCondRecord(string completeRecord)
-    {
-        try
-        {
-            var parts = completeRecord.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length < 2)
-                return;
-
-            if (parts.Length >= 3 && parts[1] == "1")
-            {
-                var time = int.TryParse(parts[0].Replace("s", ""), out var t) ? t : 0;
-                var pHValue = double.TryParse(parts[2], out var pH) ? pH : 0;
-                if (_partialDataRecord == null) _partialDataRecord = new PartialDataRecord { Time = time, PHValue = pHValue };
-            }
-            else if (parts[0] == "2" && parts.Length >= 2)
-            {
-                var conductivityValue = double.TryParse(parts[1], out var cond) ? cond : 0;
-                if (_partialDataRecord != null)
-                {
-                    _phLogger.Add(_partialDataRecord.Time, _partialDataRecord.PHValue);
-                    _phLogger.LegendText = $"Current pH: {_partialDataRecord.PHValue}";
-                    _conductivityLogger.Add(_partialDataRecord.Time, conductivityValue);
-                    _conductivityLogger.LegendText = $"Current Cond: {conductivityValue}";
-                    _timeLegendItem.LabelText = $"Current Time: {_partialDataRecord.Time}s";
-                    _dataCount++;
-                    dataCountLabel.Content = $"已接收数据: {_dataCount}个";
-                    _partialDataRecord = null;
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Error($"数据解析异常: {ex.Message}");
-        }
-    }
-
     private void Button_OpenPort(object sender, RoutedEventArgs e)
     {
         if (_serialPort.IsOpen) return;
@@ -323,11 +258,11 @@ public partial class MainWindow : Window, IDisposable
 
 
         if (CollectModeCombox.SelectedIndex == 0)
-            _currentMode = CollectMode.PH_AND_COND;
+            _s470K.CurrentMode = CollectMode.PH_AND_COND;
         else if (CollectModeCombox.SelectedIndex == 1)
-            _currentMode = CollectMode.PH_ONLY;
+            _s470K.CurrentMode = CollectMode.PH_ONLY;
         else if (CollectModeCombox.SelectedIndex == 2)
-            _currentMode = CollectMode.COND_ONLY;
+            _s470K.CurrentMode = CollectMode.COND_ONLY;
 
         try
         {
@@ -367,7 +302,6 @@ public partial class MainWindow : Window, IDisposable
         _isCollecting = false;
         Log.Information("数据采集停止。");
         _dispatcherTimer.Stop();
-        _partialDataRecord = null;
         Btn_StartCollect.IsEnabled = true;
         Btn_StopCollect.IsEnabled = false;
     }
@@ -427,7 +361,7 @@ public partial class MainWindow : Window, IDisposable
             Settings.Default.ExportDataPath = Path.GetDirectoryName(filename);
             Settings.Default.Save();
 
-            switch (_currentMode)
+            switch (_s470K.CurrentMode)
             {
                 case CollectMode.PH_ONLY:
                     contentString.AppendLine("Time(s) pH");
@@ -575,17 +509,4 @@ public partial class MainWindow : Window, IDisposable
     {
         Dispose(false);
     }
-}
-
-public enum CollectMode
-{
-    PH_AND_COND,
-    PH_ONLY,
-    COND_ONLY
-}
-
-public class PartialDataRecord
-{
-    public int Time { get; set; }
-    public double PHValue { get; set; }
 }

@@ -1,4 +1,5 @@
 using Microsoft.Win32;
+using MettlerDataCollection.Device;
 using MettlerDataCollection.Properties;
 using ScottPlot;
 using ScottPlot.Plottables;
@@ -14,14 +15,18 @@ namespace MettlerDataCollection;
 /// </summary>
 public partial class RecoverData : Window
 {
+    private readonly S470K _s470K = new();
     private DataLogger _conductivityLogger;
-    private PartialDataRecord? _partialDataRecord;
     private DataLogger _phLogger;
 
     public RecoverData()
     {
         InitializeComponent();
         InintalPlot();
+
+        // 用 S470K 解析历史数据：每行触发 ParseData，OnDataProduced 把数据点加到 plot
+        _s470K.OnDataProduced += OnDataProduced;
+        _s470K.OnParseError += OnParseError;
     }
 
     private void InintalPlot()
@@ -68,6 +73,18 @@ public partial class RecoverData : Window
         MainPlot.Refresh();
     }
 
+    private void OnDataProduced(MeasureData data)
+    {
+        // 已经在 UI 线程（ReadFile await ReadAllLinesAsync 之后），不需要 Dispatcher
+        _phLogger.Add(data.Time, data.Ph);
+        _conductivityLogger.Add(data.Time, data.Conductivity);
+    }
+
+    private void OnParseError(string error)
+    {
+        Log.Error($"[RecoverData] 解析错误: {error}");
+    }
+
     private async void ReadFile(object sender, RoutedEventArgs e)
     {
         try
@@ -95,12 +112,23 @@ public partial class RecoverData : Window
 
             this.FileNameText.Text = Path.GetFileName(fileName);
 
+            // 根据用户 UI 选的模式设置 S470K 解析模式
+            _s470K.CurrentMode = CollectModeCombox.SelectedIndex switch
+            {
+                0 => CollectMode.PH_AND_COND,
+                1 => CollectMode.PH_ONLY,
+                2 => CollectMode.COND_ONLY,
+                _ => CollectMode.PH_AND_COND,
+            };
+
             foreach (var line in await File.ReadAllLinesAsync(fileName, Encoding.UTF8))
             {
                 var parts = line.Split('|');
                 if (parts.Length >= 2)
                 {
-                    ProcessRecord(parts[1]);
+                    // 写入格式是 "yyyy-MM-dd HH:mm:ss.fff| 原始消息"
+                    // parts[1] 是 | 之后的原始消息，跟实时采集时 S470K.ParseData 收到的格式一致
+                    _s470K.ParseData(parts[1].Trim());
                 }
             }
 
@@ -110,59 +138,6 @@ public partial class RecoverData : Window
         {
             Log.Error($"读取文件时发生错误: {ex.Message}");
             FluentMessageBox.Show($"读取文件时发生错误: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error, this);
-        }
-    }
-
-    private void ProcessRecord(string completeRecord)
-    {
-        switch (CollectModeCombox.SelectedIndex)
-        {
-            case 0:
-            {
-                var parts = completeRecord.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length < 2)
-                    return;
-
-                if (parts.Length >= 3 && parts[1] == "1")
-                {
-                    var time = int.TryParse(parts[0].Replace("s", ""), out var t) ? t : 0;
-                    var pHValue = double.TryParse(parts[2], out var pH) ? pH : 0;
-                    if (_partialDataRecord == null)
-                        _partialDataRecord = new PartialDataRecord { Time = time, PHValue = pHValue };
-                }
-                else if (parts[0] == "2" && parts.Length >= 2)
-                {
-                    var conductivityValue = double.TryParse(parts[1], out var cond) ? cond : 0;
-                    if (_partialDataRecord != null)
-                    {
-                        _phLogger.Add(_partialDataRecord.Time, _partialDataRecord.PHValue);
-                        _conductivityLogger.Add(_partialDataRecord.Time, conductivityValue);
-                        _partialDataRecord = null;
-                    }
-                }
-
-                break;
-            }
-            case 1:
-            {
-                var parts = completeRecord.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length < 2)
-                    return;
-                var time = int.TryParse(parts[0].Replace("s", ""), out var _t) ? _t : 0;
-                var pHValue = double.TryParse(parts[1], out var pH) ? pH : 0;
-                _phLogger.Add(time, pHValue);
-                break;
-            }
-            case 2:
-            {
-                var parts = completeRecord.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length < 2)
-                    return;
-                var time = int.TryParse(parts[0].Replace("s", ""), out var _t) ? _t : 0;
-                var condValue = double.TryParse(parts[1], out var cond) ? cond : 0;
-                _conductivityLogger.Add(time, condValue);
-                break;
-            }
         }
     }
 
@@ -182,9 +157,6 @@ public partial class RecoverData : Window
         // 3. 设置文件过滤器 (用于限制文件类型)
         // 格式: "描述|*.扩展名|描述|*.扩展名"
         saveFileDialog.Filter = "文本文件 (*.txt)|*.txt|所有文件 (*.*)|*.*";
-
-        // 4. 设置初始目录（可选）
-        // saveFileDialog.InitialDirectory = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
 
         // **显示对话框**
         var result = saveFileDialog.ShowDialog();

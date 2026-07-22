@@ -14,8 +14,13 @@ namespace MettlerDataCollection.Device
 
         public string Name => "S470-K";
         public string Description => "S470-K is a device that measures pH and Conductivity.";
+
+        public CollectMode CurrentMode { get; set; } = CollectMode.PH_AND_COND;
+
         public event Action<MeasureData>? OnDataProduced;
         public event Action<string>? OnLinePreprocessed;
+        public event Action<string>? OnParseError;
+
         private PartialData? _data1 = null;
 
         /// <summary>
@@ -61,36 +66,89 @@ namespace MettlerDataCollection.Device
             }
         }
 
-        public void ReceiveData(string dataString)
+        /// <summary>
+        ///     根据 <see cref="CurrentMode" /> 解析 1 行数据。
+        ///     当前仅实现 <see cref="CollectMode.PH_AND_COND" />（双工模式）；
+        ///     单工模式（PH_ONLY / COND_ONLY）暂未实现，触发 <see cref="OnParseError" /> 提示。
+        /// </summary>
+        public void ParseData(string line)
         {
-            var parts = dataString.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-            if (parts.Length < 2) throw new Exception("Invalid data format");
+            switch (CurrentMode)
+            {
+                case CollectMode.PH_AND_COND:
+                    ParsePhAndCond(line);
+                    break;
+                case CollectMode.PH_ONLY:
+                    OnParseError?.Invoke($"PH_ONLY 单工模式暂未实现（line: {line}）");
+                    break;
+                case CollectMode.COND_ONLY:
+                    OnParseError?.Invoke($"COND_ONLY 单工模式暂未实现（line: {line}）");
+                    break;
+                default:
+                    OnParseError?.Invoke($"未知的采集模式 {CurrentMode}（line: {line}）");
+                    break;
+            }
+        }
+
+        /// <summary>
+        ///     双工模式解析：配对 pH 消息（带时间戳）和电导率消息（不带时间戳，借前一条 pH 的）。
+        ///     协议格式：
+        ///     <list type="bullet">
+        ///         <item>pH 消息：<c>时间s 1 pH值 pH温度</c></item>
+        ///         <item>电导率消息：<c>2 电导率值 电导率温度</c></item>
+        ///     </list>
+        /// </summary>
+        private void ParsePhAndCond(string line)
+        {
+            var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length < 2)
+            {
+                OnParseError?.Invoke($"行字段少于 2：{line}");
+                return;
+            }
+
+            // pH 消息：暂存 pH + 时间 + 温度，等配对的电导率消息
             if (parts.Length >= 3 && parts[1] == "1")
             {
                 var time = int.TryParse(parts[0].Replace("s", ""), out var t) ? t : 0;
                 var pHValue = double.TryParse(parts[2], out var pH) ? pH : 0;
-                var phTemp = double.TryParse(parts[3], out var temp) ? temp : 0;
-                if (_data1 is null) _data1 = new PartialData(time, pHValue, phTemp);
+                double? phTemp = null;
+                if (parts.Length > 3 && double.TryParse(parts[3], out var temp))
+                    phTemp = temp;
+
+                // 如果已有暂存（说明前一条 pH 没配对上），丢弃旧的
+                _data1 = new PartialData(time, pHValue, phTemp);
+                return;
             }
-            else if (parts.Length >= 3 && parts[0] == "2" && _data1 is not null)
+
+            // 电导率消息：配对前一条暂存的 pH，合成完整 MeasureData 触发 OnDataProduced
+            if (parts[0] == "2" && parts.Length >= 2)
             {
-                var conductivityValue = double.TryParse(parts[2], out var conductivity) ? conductivity : 0;
-                var conductivityTemp = double.TryParse(parts[3], out var temp) ? temp : 0;
-                var completeData = new MeasureData(
+                if (_data1 is null)
+                {
+                    // 收到电导率但前面没 pH 暂存（可能仪器切换瞬间），丢弃
+                    OnParseError?.Invoke($"电导率消息无配对 pH（line: {line}）");
+                    return;
+                }
+
+                var conductivityValue = double.TryParse(parts[1], out var cond) ? cond : 0;
+                double? conductivityTemp = null;
+                if (parts.Length > 2 && double.TryParse(parts[2], out var temp))
+                    conductivityTemp = temp;
+
+                var data = new MeasureData(
                     Ph: _data1.Ph,
                     Conductivity: conductivityValue,
                     Time: _data1.Time,
                     PhTemp: _data1.PhTemp,
-                    ConductivityTemp: conductivityTemp
-                );
-                OnDataProduced?.Invoke(completeData);
+                    ConductivityTemp: conductivityTemp);
+
+                OnDataProduced?.Invoke(data);
                 _data1 = null;
-            }
-            else
-            {
-                throw new Exception("Invalid data format");
+                return;
             }
 
+            OnParseError?.Invoke($"行格式不识别：{line}");
         }
     }
 
