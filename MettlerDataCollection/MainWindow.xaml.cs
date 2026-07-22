@@ -55,7 +55,9 @@ public partial class MainWindow : Window, IDisposable
 
         InitPlot();
         InitSerialPort();
-        //Create_data(new object(), new RoutedEventArgs());
+
+        // UI 状态机初始化：让代码主导 UI 状态，XAML 只管布局
+        UpdateUiState(UiState.Initial);
     }
 
     private void OnLinePreprocessed(string line)
@@ -210,9 +212,7 @@ public partial class MainWindow : Window, IDisposable
             _serialPort.Open();
             ComportLabel.Content = $"串口{SelectedComport}已连接。";
             Log.Information($"串口 {SelectedComport} 已打开。");
-            ComportCombox.IsEnabled = false;
-            Btn_ClosePort.IsEnabled = true;
-            Btn_OpenPort.IsEnabled = false;
+            UpdateUiState(UiState.PortOpened);
         }
         catch (Exception ex)
         {
@@ -229,10 +229,8 @@ public partial class MainWindow : Window, IDisposable
         {
             _serialPort.Close();
             ComportLabel.Content = $"串口{SelectedComport}已断开。";
-            ComportCombox.IsEnabled = true;
             Log.Information($"串口 {SelectedComport} 已关闭。");
-            Btn_OpenPort.IsEnabled = true;
-            Btn_ClosePort.IsEnabled = false;
+            UpdateUiState(UiState.Initial);
         }
         catch (Exception ex)
         {
@@ -293,8 +291,7 @@ public partial class MainWindow : Window, IDisposable
         _dataCount = 0;
         _isCollecting = true;
         Log.Information("数据采集开始。");
-        Btn_StopCollect.IsEnabled = true;
-        Btn_StartCollect.IsEnabled = false;
+        UpdateUiState(UiState.Collecting);
     }
 
     private void Button_StopCollect(object sender, RoutedEventArgs e)
@@ -302,8 +299,7 @@ public partial class MainWindow : Window, IDisposable
         _isCollecting = false;
         Log.Information("数据采集停止。");
         _dispatcherTimer.Stop();
-        Btn_StartCollect.IsEnabled = true;
-        Btn_StopCollect.IsEnabled = false;
+        UpdateUiState(UiState.PortOpened);
     }
 
 
@@ -327,88 +323,74 @@ public partial class MainWindow : Window, IDisposable
 
     private void Button_ExportData(object sender, RoutedEventArgs e)
     {
-        var saveFileDialog = new SaveFileDialog();
+        var saveFileDialog = new SaveFileDialog
+        {
+            FileName = _sampleNo,
+            DefaultExt = ".txt",
+            Filter = "文本文件 (*.txt)|*.txt|所有文件 (*.*)|*.*",
+        };
 
-        // **配置属性**
-        var contentString = new StringBuilder();
-
-        // 1. 设置默认的文件名
-        saveFileDialog.FileName = _sampleNo;
-
-        // 2. 设置默认的文件扩展名
-        saveFileDialog.DefaultExt = ".txt";
-
-        // 3. 设置文件过滤器 (用于限制文件类型)
-        // 格式: "描述|*.扩展名|描述|*.扩展名"
-        saveFileDialog.Filter = "文本文件 (*.txt)|*.txt|所有文件 (*.*)|*.*";
-
-        // 4. 设置初始目录
         if (!string.IsNullOrWhiteSpace(Settings.Default.ExportDataPath) && Directory.Exists(Settings.Default.ExportDataPath))
-        {
             saveFileDialog.InitialDirectory = Settings.Default.ExportDataPath;
-        }
 
-        // **显示对话框**
-        var result = saveFileDialog.ShowDialog();
+        if (saveFileDialog.ShowDialog() != true) return;
 
-        // **处理对话框结果**
-        if (result == true)
+        var filename = saveFileDialog.FileName;
+        Settings.Default.ExportDataPath = Path.GetDirectoryName(filename);
+        Settings.Default.Save();
+
+        var content = BuildExportContent();
+        WriteExportFile(filename, content);
+    }
+
+    /// <summary>
+    ///     根据 <see cref="S470K.CurrentMode" /> 生成导出文本。
+    /// </summary>
+    private string BuildExportContent()
+    {
+        var sb = new StringBuilder();
+        switch (_s470K.CurrentMode)
         {
-            // 获取用户选择的文件路径（包含文件名）
-            var filename = saveFileDialog.FileName;
+            case CollectMode.PH_ONLY:
+                sb.AppendLine("Time(s) pH");
+                foreach (var record in _phLogger.Data.Coordinates)
+                    sb.AppendLine($"{record.X,5} {record.Y,7}");
+                break;
+            case CollectMode.COND_ONLY:
+                sb.AppendLine("Time(s) Conductivity(µS/cm)");
+                foreach (var record in _conductivityLogger.Data.Coordinates)
+                    sb.AppendLine($"{record.X,5} {record.Y,7}");
+                break;
+            case CollectMode.PH_AND_COND:
+                sb.AppendLine("Time(s) pH Conductivity(µS/cm)");
+                foreach (var record in _phLogger.Data.Coordinates)
+                {
+                    var time = record.X;
+                    var pH = record.Y;
+                    var conductivityRecord = _conductivityLogger.Data.Coordinates.FirstOrDefault(r => r.X == time);
+                    var conductivity = conductivityRecord != null ? conductivityRecord.Y : 0;
+                    sb.AppendLine($"{time,6} {pH,7} {conductivity,7}");
+                }
+                break;
+        }
+        return sb.ToString();
+    }
 
-            // 更新导出数据目录
-            Settings.Default.ExportDataPath = Path.GetDirectoryName(filename);
-            Settings.Default.Save();
-
-            switch (_s470K.CurrentMode)
-            {
-                case CollectMode.PH_ONLY:
-                    contentString.AppendLine("Time(s) pH");
-                    foreach (var record in _phLogger.Data.Coordinates)
-                    {
-                        var time = record.X;
-                        var pH = record.Y;
-                        contentString.AppendLine($"{time,5} {pH,7}");
-                    }
-
-                    break;
-                case CollectMode.COND_ONLY:
-                    contentString.AppendLine("Time(s) Conductivity(µS/cm)");
-                    foreach (var record in _conductivityLogger.Data.Coordinates)
-                    {
-                        var time = record.X;
-                        var conductivity = record.Y;
-                        contentString.AppendLine($"{time,5} {conductivity,7}");
-                    }
-
-                    break;
-                case CollectMode.PH_AND_COND:
-                    contentString.AppendLine("Time(s) pH Conductivity(µS/cm)");
-                    foreach (var record in _phLogger.Data.Coordinates)
-                    {
-                        var time = record.X;
-                        var pH = record.Y;
-                        var conductivityRecord = _conductivityLogger.Data.Coordinates.FirstOrDefault(r => r.X == time);
-                        var conductivity = conductivityRecord != null ? conductivityRecord.Y : 0;
-                        contentString.AppendLine($"{time,6} {pH,7} {conductivity,7}");
-                    }
-
-                    break;
-            }
-
-            // 实际保存文件的代码（例如使用 System.IO.File.WriteAllText）
-            try
-            {
-                File.WriteAllText(filename, contentString.ToString(), Encoding.UTF8);
-                Log.Information($"数据已导出到文件: {filename}");
-            }
-            catch (Exception ex)
-            {
-                FluentMessageBox.Show($"导出数据时发生错误，请重试。{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error,
-                    this);
-                Log.Error($"导出数据到文件 {filename} 时发生错误。{ex.Message}");
-            }
+    /// <summary>
+    ///     写盘 + 错误处理。失败弹窗并 log，不抛异常。
+    /// </summary>
+    private void WriteExportFile(string filename, string content)
+    {
+        try
+        {
+            File.WriteAllText(filename, content, Encoding.UTF8);
+            Log.Information($"数据已导出到文件: {filename}");
+        }
+        catch (Exception ex)
+        {
+            FluentMessageBox.Show($"导出数据时发生错误，请重试。{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error,
+                this);
+            Log.Error($"导出数据到文件 {filename} 时发生错误。{ex.Message}");
         }
     }
 
@@ -462,23 +444,45 @@ public partial class MainWindow : Window, IDisposable
         helpWindow.Show();
     }
 
-    private async void Create_data(object sender, RoutedEventArgs e)
+    /// <summary>
+    ///     UI 状态机：4 个按钮的 IsEnabled + ComportCombox.IsEnabled 集中管理。
+    ///     4 个 Button handler 各自调一次，不再散落。
+    /// </summary>
+    private enum UiState
     {
-        int time = 0;
-        double ph = 7.0;
-        double cond = 3.5;
-        _dispatcherTimer.Start();
-        var random = new Random();
-        while (true)
+        /// <summary>串口未开</summary>
+        Initial,
+        /// <summary>串口已开，未采集</summary>
+        PortOpened,
+        /// <summary>采集中</summary>
+        Collecting,
+    }
+
+    private void UpdateUiState(UiState state)
+    {
+        switch (state)
         {
-            time += 5;
-            ph += random.Next(-5, 5) * -1;
-            cond += random.Next(-10, 10) * -50;
-            _phLogger.Add(time, ph);
-            _conductivityLogger.Add(time, cond);
-            await Task.Delay(100);
-            MainPlot.Refresh();
-            _timeLegendItem.LabelText = $"Current Time: {time}s";
+            case UiState.Initial:
+                Btn_OpenPort.IsEnabled = true;
+                Btn_ClosePort.IsEnabled = false;
+                Btn_StartCollect.IsEnabled = false;
+                Btn_StopCollect.IsEnabled = false;
+                ComportCombox.IsEnabled = true;
+                break;
+            case UiState.PortOpened:
+                Btn_OpenPort.IsEnabled = false;
+                Btn_ClosePort.IsEnabled = true;
+                Btn_StartCollect.IsEnabled = true;
+                Btn_StopCollect.IsEnabled = false;
+                ComportCombox.IsEnabled = false;
+                break;
+            case UiState.Collecting:
+                Btn_OpenPort.IsEnabled = false;
+                Btn_ClosePort.IsEnabled = false;
+                Btn_StartCollect.IsEnabled = false;
+                Btn_StopCollect.IsEnabled = true;
+                ComportCombox.IsEnabled = false;
+                break;
         }
     }
 
