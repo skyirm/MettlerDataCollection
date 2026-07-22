@@ -15,16 +15,19 @@ namespace MettlerDataCollection.Device
         public string Name => "S470-K";
         public string Description => "S470-K is a device that measures pH and Conductivity.";
         public event Action<MeasureData>? OnDataProduced;
+        public event Action<string>? OnLinePreprocessed;
         private PartialData? _data1 = null;
 
         /// <summary>
-        ///     把串口原始 chunk 切成 0..N 个完整行。
+        ///     把串口原始 chunk 喂进来，每切出一行触发 <see cref="OnLinePreprocessed" />。
         ///     半行（没遇到 \r\n）保留在内部 buffer，下次 PreprocessData 时继续拼。
         /// </summary>
-        public IEnumerable<string> PreprocessData(string chunk)
+        /// <remarks>
+        ///     event 在锁外触发，避免 handler 慢（写盘 IO 等）阻塞后续串口接收。
+        /// </remarks>
+        public void PreprocessData(string chunk)
         {
-            // 一次性收集所有完整行返回，避免调用方延迟迭代（LINQ 链式会延迟到枚举时才访问 buffer）。
-            var lines = new List<string>();
+            List<string>? lines = null;
 
             lock (_bufferLock)
             {
@@ -39,7 +42,10 @@ namespace MettlerDataCollection.Device
                     bufferStr = bufferStr[(delimiterIndex + RecordDelimiter.Length)..];
 
                     if (!string.IsNullOrEmpty(completeLine))
+                    {
+                        lines ??= new List<string>();
                         lines.Add(completeLine);
+                    }
                 }
 
                 // 剩下不完整的数据保留
@@ -47,7 +53,12 @@ namespace MettlerDataCollection.Device
                 _receiveBuffer.Append(bufferStr);
             }
 
-            return lines;
+            // 锁外触发 event。订阅者在自己的线程里处理，handler 慢不阻塞后续 PreprocessData。
+            if (lines != null)
+            {
+                foreach (var line in lines)
+                    OnLinePreprocessed?.Invoke(line);
+            }
         }
 
         public void ReceiveData(string dataString)

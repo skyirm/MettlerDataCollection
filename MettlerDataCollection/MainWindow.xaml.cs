@@ -51,11 +51,19 @@ public partial class MainWindow : Window, IDisposable
         _watcher.Start();
         HandleComPortsChanged(new List<string>(SerialPort.GetPortNames()));
 
-
+        _s470K.OnLinePreprocessed += OnLinePreprocessed;
 
         InitPlot();
         InitSerialPort();
         //Create_data(new object(), new RoutedEventArgs());
+    }
+
+    private void OnLinePreprocessed(string line)
+    {
+        // _isCollecting 在"清残留数据"阶段是 false，handler 只写盘不更新 plot，
+        // 保证上一份实验的残留数据不污染新实验的 plot。
+        if (_isCollecting) Dispatcher.BeginInvoke(() => ProcessCompleteRecord(line));
+        _persistenceService.WriteRecord(line);
     }
 
     public string SelectedComport { get; set; }
@@ -154,17 +162,9 @@ public partial class MainWindow : Window, IDisposable
         try
         {
             var newData = _serialPort.ReadExisting();
-
-            // 立刻 foreach（S470K 内部有半行 buffer，延迟迭代会破坏状态机）。
-            foreach (var completeRecord in _s470K.PreprocessData(newData))
-            {
-                if (!string.IsNullOrEmpty(completeRecord))
-                {
-                    // 在 UI 线程处理完整记录
-                    if (_isCollecting) Dispatcher.BeginInvoke(() => ProcessCompleteRecord(completeRecord));
-                    _persistenceService.WriteRecord(completeRecord);
-                }
-            }
+            // S470K.PreprocessData 内部按 \r\n 切行，每切出一行就触发 OnLinePreprocessed，
+            // handler (OnLinePreprocessed) 负责写盘和更新 plot。
+            _s470K.PreprocessData(newData);
         }
         catch (Exception ex)
         {
@@ -332,23 +332,16 @@ public partial class MainWindow : Window, IDisposable
         try
         {
             // === 1️⃣ 清理串口残留数据 ===
-            // 把硬件 FIFO 里的数据抢救出来，合并 S470K 内部半行 buffer 切成完整行，写到当前文件（上一份实验）里。
+            // 把硬件 FIFO 里的数据抢救出来，S470K.PreprocessData 会按 \r\n 切完整行，
+            // 通过 OnLinePreprocessed → 写盘到当前文件（上一份实验）。
             // 注意：必须在 _persistenceService.StartNewFile(...) 之前执行，
             //      否则残留数据会污染新实验的文件。
+            // _isCollecting 此时仍为 false，handler 只写盘不更新 plot。
             if (_serialPort.BytesToRead > 0)
             {
                 var chunk = _serialPort.ReadExisting();
-                var rescued = 0;
-                foreach (var line in _s470K.PreprocessData(chunk))
-                {
-                    if (!string.IsNullOrWhiteSpace(line))
-                    {
-                        _persistenceService.WriteRecord(line);
-                        rescued++;
-                    }
-                }
-                if (rescued > 0)
-                    Log.Information($"已保存停止期间积累的残留数据 ({rescued} 条)。");
+                _s470K.PreprocessData(chunk);
+                Log.Information("已尝试抢救停止期间积累的残留数据。");
             }
         }
         catch (Exception ex)
