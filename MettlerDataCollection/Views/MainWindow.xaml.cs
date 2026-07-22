@@ -23,6 +23,9 @@ namespace MettlerDataCollection.Views;
 
 public partial class MainWindow : Window, IDisposable
 {
+    /// <summary>用户最近一次在 plot 上交互的时间。null = 无交互（应用当前显示模式）。</summary>
+    private const double UserViewIdleSeconds = 5;
+
     private bool _disposed;
 
     private readonly ComPortWatcher _watcher;
@@ -38,6 +41,11 @@ public partial class MainWindow : Window, IDisposable
     private DataLogger _phLogger;
     private string _sampleNo = string.Empty;
     private LegendItem _timeLegendItem;
+
+    /// <summary>用户在 plot 上最后一次鼠标活动的时间。null 表示"没交互过 / 已回归"，
+    /// 此时定时器按 UI 选中模式更新视图；非 null 且距 now &lt; UserViewIdleSeconds 表示
+    /// "用户视图"期间，定时器只 Refresh 不动 axis。</summary>
+    private DateTime? _lastUserInteraction;
 
     public MainWindow(IDataPersistenceService persistenceService, IDevice device)
     {
@@ -60,6 +68,10 @@ public partial class MainWindow : Window, IDisposable
         _s470K.OnParseError += OnParseError;
 
         InitPlot();
+        InitPlotUserInput();
+        // 切换"全部/最新"时立即应用新模式，跳过 5s 用户视图保护期
+        showFull.Checked += (_, _) => _lastUserInteraction = null;
+        showSlide.Checked += (_, _) => _lastUserInteraction = null;
         InitSerialPort();
 
         // UI 状态机初始化：让代码主导 UI 状态，XAML 只管布局
@@ -161,6 +173,31 @@ public partial class MainWindow : Window, IDisposable
         MainPlot.Refresh();
     }
 
+    /// <summary>
+    ///     订阅 WpfPlot 的鼠标事件，识别用户的视图操作（滚轮/拖动/双击）。
+    ///     不抢 ScottPlot 的处理（不设 e.Handled = true），仅更新时间戳。
+    ///     拖动期间 MouseMove 持续触发，会自动重置倒计时，拖完才进入 5s 倒计时。
+    /// </summary>
+    private void InitPlotUserInput()
+    {
+        MainPlot.PreviewMouseWheel += (_, _) => OnPlotUserInteraction();
+        MainPlot.PreviewMouseDown += (_, _) => OnPlotUserInteraction();
+        MainPlot.PreviewMouseMove += (_, _) => OnPlotUserInteraction();
+    }
+
+    private void OnPlotUserInteraction()
+    {
+        _lastUserInteraction = DateTime.Now;
+        // 不在这里调 Refresh —— ScottPlot 自己已经处理了，且定时器每 1s 也会 Refresh
+    }
+
+    /// <summary>判断当前是否处于"用户视图"保护期。</summary>
+    private bool IsInUserViewWindow()
+    {
+        if (_lastUserInteraction is null) return false;
+        return (DateTime.Now - _lastUserInteraction.Value).TotalSeconds < UserViewIdleSeconds;
+    }
+
     private void InitSerialPort()
     {
         _serialPort.BaudRate = 9600;
@@ -174,17 +211,44 @@ public partial class MainWindow : Window, IDisposable
 
     private void DispatcherTimerTick(object? sender, EventArgs e)
     {
-        if (showFull.IsChecked == true)
+        // 用户视图保护期：用户在 plot 上最近交互过，5s 内不覆盖其视图
+        if (!IsInUserViewWindow())
         {
-            _phLogger.ViewFull();
-            _conductivityLogger.ViewFull();
-        }
-        else if (showSlide.IsChecked == true)
-        {
-            ApplyLatestWindow(200);
+            if (showFull.IsChecked == true)
+            {
+                _phLogger.ViewFull();
+                _conductivityLogger.ViewFull();
+            }
+            else if (showSlide.IsChecked == true)
+            {
+                ApplyLatestWindow(200);
+            }
         }
 
+        UpdateUserViewHint();
         MainPlot.Refresh();
+    }
+
+    /// <summary>底栏提示"用户视图（X秒后自动恢复）"，没交互或已回归时清空。</summary>
+    private void UpdateUserViewHint()
+    {
+        if (_lastUserInteraction is null)
+        {
+            UserViewHint.Content = string.Empty;
+            return;
+        }
+
+        var elapsed = (DateTime.Now - _lastUserInteraction.Value).TotalSeconds;
+        if (elapsed >= UserViewIdleSeconds)
+        {
+            // 倒计时到，下次 timer tick 会真正回归 UI 选中的模式
+            UserViewHint.Content = string.Empty;
+        }
+        else
+        {
+            var remain = (int)Math.Ceiling(UserViewIdleSeconds - elapsed);
+            UserViewHint.Content = $"用户视图（{remain}s 后自动恢复）";
+        }
     }
 
     /// <summary>
@@ -311,6 +375,7 @@ public partial class MainWindow : Window, IDisposable
         _phLogger.Clear();
         _conductivityLogger.Clear();
         dataCountLabel.Content = "已接收数据: 0个";
+        _lastUserInteraction = null; // 开始新一轮：清掉用户视图状态，让定时器立即应用选中模式
         _dispatcherTimer.Start();
         _persistenceService.StartNewFile(_sampleNo);
         MainPlot.Refresh();
@@ -468,6 +533,16 @@ public partial class MainWindow : Window, IDisposable
     {
         var helpWindow = new HelpWindow { Owner = this, WindowStartupLocation = WindowStartupLocation.CenterOwner };
         helpWindow.Show();
+    }
+
+    private void Button_OpenOperationGuide(object sender, RoutedEventArgs e)
+    {
+        var operationGuideWindow = new OperationGuide
+        {
+            Owner = this,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner
+        };
+        operationGuideWindow.Show();
     }
 
     /// <summary>

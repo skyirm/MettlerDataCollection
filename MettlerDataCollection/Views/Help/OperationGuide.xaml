@@ -1,0 +1,196 @@
+﻿<Window x:Class="MettlerDataCollection.Views.Help.OperationGuide"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="操作指南"
+        Height="650" Width="780"
+        MinWidth="600" MinHeight="400"
+        WindowStartupLocation="CenterOwner"
+        Background="#FAFAFA">
+    <Border Margin="12" Padding="18" Background="White" CornerRadius="10"
+            BorderBrush="#DDD" BorderThickness="1">
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel>
+
+                <!-- 标题 -->
+                <TextBlock Text="梅特勒 S470 数据采集 — 操作指南"
+                           FontSize="22" FontWeight="Bold" Foreground="#2D2D2D"
+                           Margin="0,0,0,6" />
+                <TextBlock Text="从拆箱到导出，一步步带你跑通整个采集流程。"
+                           Foreground="#777" FontSize="13" Margin="0,0,0,18" />
+
+                <!-- 1. 启动软件 -->
+                <TextBlock Text="1. 启动软件"
+                           FontSize="16" FontWeight="Bold" Foreground="#0078D7"
+                           Margin="0,4,0,8" />
+                <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="5"
+                        Padding="12" Margin="0,0,0,14" Background="#FCFCFC">
+                    <StackPanel>
+                        <TextBlock Text="• 第一次启动会弹出" FontSize="13" Foreground="#333" />
+                        <TextBlock Text="  &quot;启动设置&quot; 窗口" FontSize="13" Foreground="#333" />
+                        <TextBlock Text="• 选择 数据存放目录（之后可在菜单 设置 → 采集设置 修改）" FontSize="13" Foreground="#333" />
+                        <TextBlock Text="• 选择 仪器设备（目前仅 S470-K 可选）" FontSize="13" Foreground="#333" />
+                        <TextBlock Text="• 点 确认 进入主界面" FontSize="13" Foreground="#333" />
+                    </StackPanel>
+                </Border>
+
+                <!-- 2. 连接设备 -->
+                <TextBlock Text="2. 连接设备"
+                           FontSize="16" FontWeight="Bold" Foreground="#0078D7"
+                           Margin="0,4,0,8" />
+                <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="5"
+                        Padding="12" Margin="0,0,0,14" Background="#FCFCFC">
+                    <StackPanel>
+                        <TextBlock Text="• 准备 RS232 公口转 USB 线，连接电脑和 S470 仪器" FontSize="13" Foreground="#333" />
+                        <TextBlock Text="• 在主界面 &quot;选择一个端口&quot; 下拉框里选 COM 口" FontSize="13" Foreground="#333" />
+                        <TextBlock Text="• 可选：点 菜单 测试连接 验证端口是否能正常收发" FontSize="13" Foreground="#333" />
+                        <TextBlock Text="• 点 连接 按钮，底栏出现 &quot;串口 X 已连接&quot;" FontSize="13" Foreground="#333" />
+                        <TextBlock Text="• 串口参数（波特率/校验等）可在 菜单 设置 → 串口设置 调整" FontSize="13" Foreground="#333" />
+                    </StackPanel>
+                </Border>
+
+                <!-- 3. 配置 S470 -->
+                <TextBlock Text="3. 在 S470 设备上配置打印机输出"
+                           FontSize="16" FontWeight="Bold" Foreground="#0078D7"
+                           Margin="0,4,0,8" />
+                <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="5"
+                        Padding="12" Margin="0,0,0,14" Background="#FCFCFC">
+                    <StackPanel>
+                        <TextBlock Text="在仪器上依次选择：设置 → 硬件 → 外围设备 → 打印机" FontSize="13" Foreground="#333" />
+                        <TextBlock Text="• 选 &quot;RS232 紧凑型打印机&quot;" FontSize="13" Foreground="#333" />
+                        <TextBlock Text="• 取消勾选 &quot;自动波特率&quot;" FontSize="13" Foreground="#333" />
+                        <TextBlock Text="• 其他选项保持默认" FontSize="13" Foreground="#333" />
+                    </StackPanel>
+                </Border>
+
+                <!-- 4. 开始采集 -->
+                <TextBlock Text="4. 开始采集"
+                           FontSize="16" FontWeight="Bold" Foreground="#0078D7"
+                           Margin="0,4,0,8" />
+                <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="5"
+                        Padding="12" Margin="0,0,0,14" Background="#FCFCFC">
+                    <StackPanel>
+                        <TextBlock Text="• 选择 采集模式（pH+电导率 / pH / 电导率）" FontSize="13" Foreground="#333" />
+                        <TextBlock Text="• 点 开始采集，输入 样品编号（用于文件命名）" FontSize="13" Foreground="#333" />
+                        <TextBlock Text="• 在 S470 上启动 &quot;间隔测量&quot; 方法" FontSize="13" Foreground="#333" />
+                        <TextBlock Text="• 方法设置里务必勾选 间隔后打印（数据才会从串口推出来）" FontSize="13" Foreground="#333" Margin="0,0,0,4" />
+                        <TextBlock Text="  ⚠ 软件开始采集时会把串口残留的旧数据抢救写入上一份实验，"
+                                   FontSize="12" Foreground="#A55" />
+                        <TextBlock Text="    切换实验前务必点 停止采集，避免数据串台。"
+                                   FontSize="12" Foreground="#A55" />
+                    </StackPanel>
+                </Border>
+
+                <!-- 5. 视图交互 -->
+                <TextBlock Text="5. 实时曲线交互"
+                           FontSize="16" FontWeight="Bold" Foreground="#0078D7"
+                           Margin="0,4,0,8" />
+
+                <!-- 5.1 操作清单 -->
+                <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="5"
+                        Padding="12" Margin="0,0,0,8" Background="#FCFCFC">
+                    <StackPanel>
+                        <TextBlock Text="操作清单" FontSize="13" FontWeight="Bold" Foreground="#555" Margin="0,0,0,6" />
+                        <TextBlock Text="• 滚轮：以鼠标位置为中心缩放" FontSize="13" Foreground="#333" />
+                        <TextBlock Text="• 滚轮 + Ctrl：仅缩放 X 轴" FontSize="13" Foreground="#333" />
+                        <TextBlock Text="• 滚轮 + Shift：仅缩放 Y 轴" FontSize="13" Foreground="#333" />
+                        <TextBlock Text="• 左键拖动：平移视图" FontSize="13" Foreground="#333" />
+                        <TextBlock Text="• 右键拖动：框选缩放" FontSize="13" Foreground="#333" />
+                        <TextBlock Text="• 中键拖动：轴向缩放" FontSize="13" Foreground="#333" />
+                        <TextBlock Text="• 双击：自动适配数据范围" FontSize="13" Foreground="#333" />
+                        <TextBlock Text="• 切换 &quot;全部 / 最新&quot; 单选：立即改变视图模式" FontSize="13" Foreground="#333" />
+                    </StackPanel>
+                </Border>
+
+                <!-- 5.2 5 秒闲置自动回归 -->
+                <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="5"
+                        Padding="12" Margin="0,0,0,14" Background="#FCFCFC">
+                    <StackPanel>
+                        <TextBlock Text="5 秒闲置自动回归" FontSize="13" FontWeight="Bold" Foreground="#555" Margin="0,0,0,6" />
+                        <TextBlock Text="做视图操作后，5 秒不操作就自动回到当前选中的显示模式（底栏会显示倒计时）："
+                                   FontSize="13" Foreground="#333" TextWrapping="Wrap" Margin="0,0,0,6" />
+                        <TextBlock Text="• 滚轮缩放 / 拖动：视图跟手，底栏显示" FontSize="13" Foreground="#333" />
+                        <TextBlock Text="  &quot;用户视图（5s 后自动恢复）&quot; 倒计时"
+                                   FontSize="13" Foreground="#333" Margin="0,0,0,4" />
+                        <TextBlock Text="• 拖动中：倒计时停在 5s，不会被弹回" FontSize="13" Foreground="#333" Margin="0,0,0,4" />
+                        <TextBlock Text="• 5s 内不操作：倒计时到 0，下次 timer tick 应用当前选中的 &quot;全部 / 最新&quot; 模式"
+                                   FontSize="13" Foreground="#333" Margin="0,0,0,4" />
+                        <TextBlock Text="• 切换 &quot;全部 ↔ 最新&quot; 单选：跳过保护期，立即应用新模式"
+                                   FontSize="13" Foreground="#333" Margin="0,0,0,4" />
+                        <TextBlock Text="• 双击 plot：因为是 MouseDown，会触发 5s 保护期；5s 后再 apply 一次 ViewFull 没有副作用"
+                                   FontSize="13" Foreground="#333" TextWrapping="Wrap" Margin="0,0,0,4" />
+                        <TextBlock Text="• StopCollect 后再 StartCollect：立即进入 &quot;全部 / 最新&quot; 模式（状态已重置）"
+                                   FontSize="13" Foreground="#333" />
+                    </StackPanel>
+                </Border>
+
+                <!-- 6. 停止与导出 -->
+                <TextBlock Text="6. 停止与导出"
+                           FontSize="16" FontWeight="Bold" Foreground="#0078D7"
+                           Margin="0,4,0,8" />
+                <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="5"
+                        Padding="12" Margin="0,0,0,14" Background="#FCFCFC">
+                    <StackPanel>
+                        <TextBlock Text="• 点 停止采集 结束本次实验" FontSize="13" Foreground="#333" />
+                        <TextBlock Text="• 点 导出数据 把曲线导出为 txt（按当前采集模式生成列）" FontSize="13" Foreground="#333" />
+                        <TextBlock Text="• 原始数据全程已写到 数据目录/yyyyMMdd_HHmmss-样品编号.txt" FontSize="13" Foreground="#333" />
+                    </StackPanel>
+                </Border>
+
+                <!-- 7. 历史数据回放 -->
+                <TextBlock Text="7. 历史数据回放"
+                           FontSize="16" FontWeight="Bold" Foreground="#0078D7"
+                           Margin="0,4,0,8" />
+                <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="5"
+                        Padding="12" Margin="0,0,0,14" Background="#FCFCFC">
+                    <StackPanel>
+                        <TextBlock Text="• 菜单 文件 → 导出历史数据 打开回放窗口" FontSize="13" Foreground="#333" />
+                        <TextBlock Text="• 选 txt 文件 + 采集模式，点 选择文件 读入" FontSize="13" Foreground="#333" />
+                        <TextBlock Text="• 同样可点 导出数据 重新生成其他格式" FontSize="13" Foreground="#333" />
+                    </StackPanel>
+                </Border>
+
+                <!-- 8. 数据安全 -->
+                <TextBlock Text="8. 数据安全"
+                           FontSize="16" FontWeight="Bold" Foreground="#0078D7"
+                           Margin="0,4,0,8" />
+                <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="5"
+                        Padding="12" Margin="0,0,0,14" Background="#FCFCFC">
+                    <StackPanel>
+                        <TextBlock Text="• 每条原始数据都强制 flush 到磁盘，拔电源不丢" FontSize="13" Foreground="#333" />
+                        <TextBlock Text="• 串口连接时即使没开始采集，原始数据也会写入 origindata 文件夹" FontSize="13" Foreground="#333" />
+                        <TextBlock Text="• 通过 文件 → 导出历史数据 可恢复" FontSize="13" Foreground="#333" />
+                    </StackPanel>
+                </Border>
+
+                <!-- 9. 常见问题 -->
+                <TextBlock Text="9. 常见问题"
+                           FontSize="16" FontWeight="Bold" Foreground="#0078D7"
+                           Margin="0,4,0,8" />
+                <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="5"
+                        Padding="12" Margin="0,0,0,14" Background="#FCFCFC">
+                    <StackPanel>
+                        <TextBlock Text="• 串口列表为空" FontSize="13" Foreground="#333" FontWeight="Bold" />
+                        <TextBlock Text="  - 确认 USB 线已插上、S470 设备已上电" FontSize="12" Foreground="#555" Margin="0,0,0,4" />
+                        <TextBlock Text="  - 设备管理器看 COM 端口是否识别（必要时装驱动）" FontSize="12" Foreground="#555" Margin="0,0,0,8" />
+
+                        <TextBlock Text="• 测试连接收不到数据" FontSize="13" Foreground="#333" FontWeight="Bold" />
+                        <TextBlock Text="  - 确认 S470 设备端按本指南 步骤 3 配置了打印机" FontSize="12" Foreground="#555" Margin="0,0,0,4" />
+                        <TextBlock Text="  - 确认 S470 上启动了 &quot;间隔测量&quot; 方法并勾选 &quot;间隔后打印&quot;" FontSize="12" Foreground="#555" Margin="0,0,0,8" />
+
+                        <TextBlock Text="• 解析后曲线没数据 / 数据点很少" FontSize="13" Foreground="#333" FontWeight="Bold" />
+                        <TextBlock Text="  - 确认 采集模式 选的对：pH+电导率 / pH / 电导率" FontSize="12" Foreground="#555" Margin="0,0,0,4" />
+                        <TextBlock Text="  - 看底栏日志（如有 OnParseError 会写进 log/app_log.txt）" FontSize="12" Foreground="#555" Margin="0,0,0,8" />
+
+                        <TextBlock Text="• 切实验后曲线乱跳" FontSize="13" Foreground="#333" FontWeight="Bold" />
+                        <TextBlock Text="  - 切换实验前务必先点 停止采集，让串口残留数据抢救干净" FontSize="12" Foreground="#555" />
+                    </StackPanel>
+                </Border>
+
+                <!-- 底部 -->
+                <TextBlock Text="如需进一步帮助，请查看菜单 关于 → 帮助（精简版）或 关于 → 关于（版本信息）。"
+                           Foreground="#888" FontStyle="Italic" FontSize="12"
+                           TextWrapping="Wrap" Margin="0,10,0,0" />
+            </StackPanel>
+        </ScrollViewer>
+    </Border>
+</Window>

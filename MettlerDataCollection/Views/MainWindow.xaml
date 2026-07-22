@@ -22,6 +22,7 @@
                 <MenuItem Header="采集设置" Click="Button_SampleSetting" />
             </MenuItem>
             <MenuItem Header="关于">
+                <MenuItem Header="操作指南" Click="Button_OpenOperationGuide" />
                 <MenuItem Header="帮助" Click="Button_OpenHelp" />
                 <MenuItem Header="关于" Click="Button_OpenAbout" />
             </MenuItem>
@@ -64,6 +65,7 @@
             <Label x:Name="SampleNoLabel" Content="样品编号：" Margin="5,0,0,0" VerticalAlignment="Center" />
             <Button Content="修改编号" Margin="5,2,0,2" Click="Button_ModifySampleNo" VerticalAlignment="Center" />
             <Label x:Name="dataCountLabel" VerticalAlignment="Center" />
+            <Label x:Name="UserViewHint" VerticalAlignment="Center" Foreground="Gray" />
         </StackPanel>
     </Grid>
 </Window>
