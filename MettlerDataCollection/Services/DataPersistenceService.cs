@@ -11,10 +11,23 @@ namespace MettlerDataCollection.Services;
 public class DataPersistenceService : IDataPersistenceService
 {
     private readonly object _fileLock = new();
+    private readonly string _basePath;
 
     private FileStream? _stream;
     private StreamWriter? _writer;
     private string? _currentFilePath;
+
+    /// <summary>
+    ///     <paramref name="basePath" /> 是数据存放根目录，构造时自动创建。
+    /// </summary>
+    public DataPersistenceService(string basePath)
+    {
+        if (string.IsNullOrWhiteSpace(basePath))
+            throw new ArgumentException("数据存放路径不能为空", nameof(basePath));
+
+        _basePath = basePath;
+        Directory.CreateDirectory(_basePath);
+    }
 
     public string? CurrentFilePath
     {
@@ -27,16 +40,14 @@ public class DataPersistenceService : IDataPersistenceService
         }
     }
 
-    public void StartNewFile(string sampleNo, string dataPath)
+    public void StartNewFile(string sampleNo)
     {
         lock (_fileLock)
         {
             CloseFileUnsafe();
 
-            Directory.CreateDirectory(dataPath);
-
             var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            _currentFilePath = Path.Combine(dataPath, $"{timestamp}-{sampleNo}.txt");
+            _currentFilePath = Path.Combine(_basePath, $"{timestamp}-{sampleNo}.txt");
 
             // FileMode.Append: 不存在则创建，存在则追加（理论上不会撞名，但保险起见）
             _stream = new FileStream(

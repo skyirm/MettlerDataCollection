@@ -29,7 +29,7 @@ public partial class MainWindow : Window, IDisposable
     private readonly SerialPort _serialPort = new();
     private readonly DispatcherTimer _dispatcherTimer = new();
     private readonly IDataPersistenceService _persistenceService;
-    private readonly S470K _s470K = new();
+    private readonly IDevice _s470K;
 
     private volatile int _dataCount;
     private volatile bool _isCollecting;
@@ -39,9 +39,10 @@ public partial class MainWindow : Window, IDisposable
     private string _sampleNo = string.Empty;
     private LegendItem _timeLegendItem;
 
-    public MainWindow(IDataPersistenceService persistenceService)
+    public MainWindow(IDataPersistenceService persistenceService, IDevice device)
     {
         _persistenceService = persistenceService;
+        _s470K = device;
 
         InitializeComponent();
         DataContext = this;
@@ -291,7 +292,7 @@ public partial class MainWindow : Window, IDisposable
         _conductivityLogger.Clear();
         dataCountLabel.Content = "已接收数据: 0个";
         _dispatcherTimer.Start();
-        _persistenceService.StartNewFile(_sampleNo, Settings.Default.DataPath);
+        _persistenceService.StartNewFile(_sampleNo);
         MainPlot.Refresh();
         _dataCount = 0;
         _isCollecting = true;

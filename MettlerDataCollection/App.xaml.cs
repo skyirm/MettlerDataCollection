@@ -1,10 +1,8 @@
-using System.IO;
 using System.Windows;
 using System.Windows.Threading;
-using MettlerDataCollection.Properties;
 using MettlerDataCollection.Services;
 using MettlerDataCollection.Views;
-using Microsoft.Win32;
+using MettlerDataCollection.Views.Startup;
 using Serilog;
 
 namespace MettlerDataCollection;
@@ -40,45 +38,20 @@ public partial class App : Application
         // 3. Task线程异常处理
         TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
 
-        var mainWindow = new MainWindow(new DataPersistenceService());
-        mainWindow.Show();
-        EnsureDataPath();
-    }
-
-    private void EnsureDataPath()
-    {
-        var dataPath = Settings.Default.DataPath;
-
-        while (string.IsNullOrWhiteSpace(dataPath) || !Directory.Exists(dataPath))
+        // 弹出启动设置窗口：用户选择数据存放目录 + 仪器设备。
+        // 用户点"取消"则直接退出程序。
+        var startupWindow = new StartupSettingsWindow();
+        if (startupWindow.ShowDialog() != true || startupWindow.SelectedDevice is null)
         {
-            //var prompt = new DataPathPromptWindow();
-            //if (prompt.ShowDialog() != true || !prompt.Selected)
-            //{
-            //    MessageBox.Show("必须设置数据存放路径才能继续使用程序。", "提示",
-            //        MessageBoxButton.OK, MessageBoxImage.Warning);
-            //    continue;
-            //}
-
-            var dialog = new OpenFolderDialog
-            {
-                Title = "请选择数据存放路径",
-                Multiselect = false
-            };
-
-            if (dialog.ShowDialog() == true)
-            {
-                dataPath = dialog.FolderName;
-                Settings.Default.DataPath = dataPath;
-                Settings.Default.Save();
-                Directory.CreateDirectory(dataPath);
-                Log.Information($"数据存放路径已设置为: {dataPath}");
-            }
-            else
-            {
-                MessageBox.Show("必须设置数据存放路径才能继续使用程序。", "提示",
-                    MessageBoxButton.OK, MessageBoxImage.Warning);
-            }
+            Log.Information("用户在启动设置窗口取消，程序退出。");
+            Shutdown();
+            return;
         }
+
+        var mainWindow = new MainWindow(
+            new DataPersistenceService(startupWindow.DataPath),
+            startupWindow.SelectedDevice);
+        mainWindow.Show();
     }
 
     protected override void OnExit(ExitEventArgs e)

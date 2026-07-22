@@ -13,10 +13,10 @@ public interface IDataPersistenceService
 
     /// <summary>
     ///     开始一个新的样本数据文件。如果已有打开的文件，会先关闭。
+    ///     文件存放在 <see cref="IDataPersistenceService" /> 构造时指定的目录。
     /// </summary>
     /// <param name="sampleNo">样品编号，会作为文件名后缀。</param>
-    /// <param name="dataPath">数据存放目录，不存在会自动创建。</param>
-    void StartNewFile(string sampleNo, string dataPath);
+    void StartNewFile(string sampleNo);
 
     /// <summary>
     ///     写入一条原始记录。实现会加上时间戳前缀。
