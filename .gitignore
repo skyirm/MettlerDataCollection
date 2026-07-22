@@ -361,3 +361,11 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+
+# ============================================
+# Unrelated / stray files (not part of project)
+# ============================================
+# MiniMax/mimocode 工具链临时落地的脚本和摘要
+# 跟 MettlerDataCollection 项目无关，勿提交
+find_review.py
+distill_summary_final*.md
