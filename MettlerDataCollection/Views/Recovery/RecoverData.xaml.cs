@@ -1,6 +1,7 @@
 using Microsoft.Win32;
 using MettlerDataCollection.Device;
 using MettlerDataCollection.Properties;
+using MettlerDataCollection.Views.Dialogs;
 using ScottPlot;
 using ScottPlot.Plottables;
 using Serilog;
@@ -8,7 +9,7 @@ using System.IO;
 using System.Text;
 using System.Windows;
 
-namespace MettlerDataCollection;
+namespace MettlerDataCollection.Views.Recovery;
 
 /// <summary>
 ///     RecoverData.xaml 的交互逻辑

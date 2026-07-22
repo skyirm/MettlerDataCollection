@@ -2,7 +2,7 @@
 using System.Windows;
 using System.Windows.Input;
 
-namespace MettlerDataCollection;
+namespace MettlerDataCollection.Views.Help;
 
 /// <summary>
 ///     About.xaml 的交互逻辑

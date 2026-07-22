@@ -6,7 +6,7 @@ using System.Windows;
 using MettlerDataCollection.Properties;
 using Serilog;
 
-namespace MettlerDataCollection;
+namespace MettlerDataCollection.Views.Connection;
 
 /// <summary>
 ///     TestConnection.xaml 的交互逻辑

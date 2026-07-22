@@ -4,7 +4,7 @@ using MettlerDataCollection.Properties;
 using Microsoft.Win32;
 using Serilog;
 
-namespace MettlerDataCollection;
+namespace MettlerDataCollection.Views.DataSettings;
 
 public partial class CollectionSettingWindow : Window
 {

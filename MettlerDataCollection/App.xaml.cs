@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Threading;
 using MettlerDataCollection.Properties;
 using MettlerDataCollection.Services;
+using MettlerDataCollection.Views;
 using Microsoft.Win32;
 using Serilog;
 

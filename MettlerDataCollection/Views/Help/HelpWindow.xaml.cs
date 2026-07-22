@@ -1,6 +1,6 @@
 ﻿using System.Windows;
 
-namespace MettlerDataCollection;
+namespace MettlerDataCollection.Views.Help;
 
 /// <summary>
 ///     HelpWindow.xaml 的交互逻辑

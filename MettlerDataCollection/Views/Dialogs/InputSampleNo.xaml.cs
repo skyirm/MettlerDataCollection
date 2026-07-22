@@ -1,6 +1,6 @@
 ﻿using System.Windows;
 
-namespace MettlerDataCollection;
+namespace MettlerDataCollection.Views.Dialogs;
 
 /// <summary>
 ///     InputSampleNo.xaml 的交互逻辑

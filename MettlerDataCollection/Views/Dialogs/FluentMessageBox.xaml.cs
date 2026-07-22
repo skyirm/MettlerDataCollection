@@ -4,7 +4,7 @@ using System.Windows.Controls;
 using System.Windows.Interop;
 using System.Windows.Media.Imaging;
 
-namespace MettlerDataCollection;
+namespace MettlerDataCollection.Views.Dialogs;
 
 /// <summary>
 ///     FluentMessageBox.xaml 的交互逻辑

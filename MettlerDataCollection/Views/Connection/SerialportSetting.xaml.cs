@@ -3,7 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using MettlerDataCollection.Properties;
 
-namespace MettlerDataCollection;
+namespace MettlerDataCollection.Views.Connection;
 
 /// <summary>
 ///     SerialportSetting.xaml 的交互逻辑

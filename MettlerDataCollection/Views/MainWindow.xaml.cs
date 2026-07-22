@@ -8,13 +8,18 @@ using System.Windows.Threading;
 using MettlerDataCollection.Device;
 using MettlerDataCollection.Properties;
 using MettlerDataCollection.Services;
+using MettlerDataCollection.Views.Connection;
+using MettlerDataCollection.Views.Dialogs;
+using MettlerDataCollection.Views.Help;
+using MettlerDataCollection.Views.Recovery;
+using MettlerDataCollection.Views.DataSettings;
 using Microsoft.Win32;
 using ScottPlot;
 using ScottPlot.DataGenerators;
 using ScottPlot.Plottables;
 using Serilog;
 
-namespace MettlerDataCollection;
+namespace MettlerDataCollection.Views;
 
 public partial class MainWindow : Window, IDisposable
 {
