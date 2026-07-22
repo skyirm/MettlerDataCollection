@@ -4,12 +4,13 @@ using Serilog;
 
 namespace MettlerDataCollection;
 
+/// <summary>
+///     通过 WMI 监听 USB/COM 设备插拔，通知订阅者刷新串口列表。
+/// </summary>
 public class ComPortWatcher : IDisposable
 {
+    private const int PollingInterval = 1; // 秒
     private bool _disposed;
-    // 监听的时间间隔（秒）
-    private const int PollingInterval = 1;
-
     private ManagementEventWatcher _insertWatcher;
     private ManagementEventWatcher _removeWatcher;
 
@@ -18,30 +19,25 @@ public class ComPortWatcher : IDisposable
         InitializeWatchers();
     }
 
-    // 用于通知外部 COM 列表已更新的事件
+    /// <summary>COM 端口列表发生变化时触发（设备插拔都触发）。</summary>
     public event Action<List<string>> ComPortsChanged;
 
     private void InitializeWatchers()
     {
-        // WQL (WMI Query Language) 查询
-        // __InstanceCreationEvent 用于监听设备插入
+        // WQL (WMI Query Language) 查询：
+        // EventType=2 表示设备插入，=3 表示设备移除
         var insertQuery = new WqlEventQuery("SELECT * FROM Win32_DeviceChangeEvent WHERE EventType = 2");
-
-        // __InstanceDeletionEvent 用于监听设备移除
         var removeQuery = new WqlEventQuery("SELECT * FROM Win32_DeviceChangeEvent WHERE EventType = 3");
 
-        // --- 监听设备插入 ---
         _insertWatcher = new ManagementEventWatcher(insertQuery);
         _insertWatcher.EventArrived += OnDeviceChange;
-        _insertWatcher.Scope = new ManagementScope("root\\CIMV2"); // 设置 WMI 范围
+        _insertWatcher.Scope = new ManagementScope("root\\CIMV2");
 
-        // --- 监听设备移除 ---
         _removeWatcher = new ManagementEventWatcher(removeQuery);
         _removeWatcher.EventArrived += OnDeviceChange;
         _removeWatcher.Scope = new ManagementScope("root\\CIMV2");
     }
 
-    // 启动监听
     public void Start()
     {
         try
@@ -56,7 +52,6 @@ public class ComPortWatcher : IDisposable
         }
     }
 
-    // 停止监听
     public void Stop()
     {
         if (_insertWatcher != null) _insertWatcher.Stop();
@@ -88,21 +83,17 @@ public class ComPortWatcher : IDisposable
         Dispose(false);
     }
 
-    // 设备事件到达时触发
+    // 设备插拔都会触发此事件，统一走"重新拉取 COM 列表"逻辑
     private void OnDeviceChange(object sender, EventArrivedEventArgs e)
     {
-        // 任何设备变动事件都触发 COM 端口列表更新
         UpdateComPortList();
     }
 
-    // 更新 COM 端口列表并通知订阅者
     private void UpdateComPortList()
     {
-        // SerialPort.GetPortNames() 是获取当前 COM 端口列表的标准方法
+        // 注意：事件在 WMI 线程触发，订阅者需自己用 Dispatcher 转发到 UI 线程
         string[] portNames = SerialPort.GetPortNames();
         var comPorts = new List<string>(portNames);
-
-        // 在 UI 线程上触发事件
         ComPortsChanged?.Invoke(comPorts);
     }
 }

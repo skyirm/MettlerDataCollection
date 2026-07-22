@@ -96,6 +96,7 @@ public partial class MainWindow : Window, IDisposable
         dataCountLabel.Content = $"已接收数据: {_dataCount}个";
     }
 
+    // XAML 数据绑定的 SelectedItem（ComportCombox 用 TwoWay 绑定写回）
     public string SelectedComport { get; set; }
 
     private void CreateOriginDirectory()
