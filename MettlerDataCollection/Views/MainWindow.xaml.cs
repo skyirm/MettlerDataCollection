@@ -32,7 +32,7 @@ public partial class MainWindow : Window, IDisposable
     private readonly SerialPort _serialPort = new();
     private readonly DispatcherTimer _dispatcherTimer = new();
     private readonly IDataPersistenceService _persistenceService;
-    private readonly IDevice _s470K;
+    private readonly IDevice _device;
 
     private volatile int _dataCount;
     private volatile bool _isCollecting;
@@ -50,7 +50,7 @@ public partial class MainWindow : Window, IDisposable
     public MainWindow(IDataPersistenceService persistenceService, IDevice device)
     {
         _persistenceService = persistenceService;
-        _s470K = device;
+        _device = device;
 
         InitializeComponent();
         DataContext = this;
@@ -63,9 +63,9 @@ public partial class MainWindow : Window, IDisposable
         _watcher.Start();
         HandleComPortsChanged(new List<string>(SerialPort.GetPortNames()));
 
-        _s470K.OnLinePreprocessed += OnLinePreprocessed;
-        _s470K.OnDataProduced += OnDataProduced;
-        _s470K.OnParseError += OnParseError;
+        _device.OnLinePreprocessed += OnLinePreprocessed;
+        _device.OnDataProduced += OnDataProduced;
+        _device.OnParseError += OnParseError;
 
         InitPlot();
         InitPlotUserInput();
@@ -84,7 +84,7 @@ public partial class MainWindow : Window, IDisposable
         _persistenceService.WriteRecord(line);
         // 解析：S470K.ParseData 根据 CurrentMode 分支，成功触发 OnDataProduced 更新 plot。
         // _isCollecting=false（清残留阶段）时不调 ParseData，避免给上份实验的残留数据配对、污染 plot。
-        if (_isCollecting) _s470K.ParseData(line);
+        if (_isCollecting) _device.ParseData(line);
     }
 
     private void OnDataProduced(MeasureData data)
@@ -278,7 +278,7 @@ public partial class MainWindow : Window, IDisposable
             var newData = _serialPort.ReadExisting();
             // S470K.PreprocessData 内部按 \r\n 切行，每切出一行就触发 OnLinePreprocessed，
             // handler (OnLinePreprocessed) 负责写盘和更新 plot。
-            _s470K.PreprocessData(newData);
+            _device.PreprocessData(newData);
         }
         catch (Exception ex)
         {
@@ -346,11 +346,11 @@ public partial class MainWindow : Window, IDisposable
 
 
         if (CollectModeCombox.SelectedIndex == 0)
-            _s470K.CurrentMode = CollectMode.PH_AND_COND;
+            _device.CurrentMode = CollectMode.PH_AND_COND;
         else if (CollectModeCombox.SelectedIndex == 1)
-            _s470K.CurrentMode = CollectMode.PH_ONLY;
+            _device.CurrentMode = CollectMode.PH_ONLY;
         else if (CollectModeCombox.SelectedIndex == 2)
-            _s470K.CurrentMode = CollectMode.COND_ONLY;
+            _device.CurrentMode = CollectMode.COND_ONLY;
 
         try
         {
@@ -363,7 +363,7 @@ public partial class MainWindow : Window, IDisposable
             if (_serialPort.BytesToRead > 0)
             {
                 var chunk = _serialPort.ReadExisting();
-                _s470K.PreprocessData(chunk);
+                _device.PreprocessData(chunk);
                 Log.Information("已尝试抢救停止期间积累的残留数据。");
             }
         }
@@ -396,19 +396,34 @@ public partial class MainWindow : Window, IDisposable
 
     private void MainWindow_Closing(object sender, CancelEventArgs e)
     {
-        if (FluentMessageBox.Show("数据导出了吗？", "确认退出",
-                MessageBoxButton.OKCancel, MessageBoxImage.Warning, this) != MessageBoxResult.OK)
+        try
         {
-            e.Cancel = true;
-        }
-        else
-        {
-            if (_serialPort.IsOpen)
+            // 启动期间 WPF 可能因为异常或 Maximized 状态异常触发 Closing，但窗口其实从未显示。
+            // 这种情况下 IsLoaded=false，弹"数据导出了吗？"既不必要也会让 e.Cancel 失效——
+            // 因为 ShowDialog 在无效 owner 上会立即返回。
+            // 直接放过关闭，让 OnExit 走清理路径。
+            if (!IsLoaded)
+                return;
+
+            if (FluentMessageBox.Show("数据导出了吗？", "确认退出",
+                    MessageBoxButton.OKCancel, MessageBoxImage.Warning, this) != MessageBoxResult.OK)
             {
-                _serialPort.Close();
-                Log.Information($"串口 {SelectedComport} 已关闭。");
+                e.Cancel = true;
             }
-            _watcher.Stop();
+            else
+            {
+                if (_serialPort.IsOpen)
+                {
+                    _serialPort.Close();
+                    Log.Information($"串口 {SelectedComport} 已关闭。");
+                }
+                _watcher.Stop();
+            }
+        }
+        catch (Exception ex)
+        {
+            // Closing 路径上任何异常都吞掉，避免 e.Cancel 失效导致应用闪退。
+            Log.Error($"MainWindow_Closing 异常: {ex.GetType().Name}: {ex.Message}");
         }
     }
 
@@ -440,7 +455,7 @@ public partial class MainWindow : Window, IDisposable
     private string BuildExportContent()
     {
         var sb = new StringBuilder();
-        switch (_s470K.CurrentMode)
+        switch (_device.CurrentMode)
         {
             case CollectMode.PH_ONLY:
                 sb.AppendLine("Time(s) pH");
@@ -515,7 +530,9 @@ public partial class MainWindow : Window, IDisposable
 
     private void Button_ReadOrigindata(object sender, RoutedEventArgs e)
     {
-        var recoverDataWindow = new RecoverData();
+        // 把当前设备类型传进 RecoverData，它内部用 DeviceCatalog 自己 new 一个临时实例，
+        // 避免 RecoverData 的解析动到主窗口 device 的 _data1 配对状态。
+        var recoverDataWindow = new RecoverData(_device.GetType());
         recoverDataWindow.Show();
     }
 

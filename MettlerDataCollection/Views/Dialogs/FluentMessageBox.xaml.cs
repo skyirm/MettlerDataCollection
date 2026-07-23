@@ -96,7 +96,17 @@ public partial class FluentMessageBox : Window
     {
         var msg = new FluentMessageBox(message, title, buttons, icon);
         if (owner != null)
-            msg.Owner = owner;
+        {
+            try
+            {
+                msg.Owner = owner;
+            }
+            catch (InvalidOperationException)
+            {
+                // WPF 不允许将 Owner 设到"未显示/正在关闭"的窗口（MainWindow_Closing 弹确认框时会触发）。
+                // 失败时降级为无 Owner 弹窗，对话框照常能用，只是不会居中到 owner。
+            }
+        }
 
         msg.ShowDialog();
         return msg.Result;
@@ -107,7 +117,16 @@ public partial class FluentMessageBox : Window
     {
         var msg = new FluentMessageBox(message, title, buttonText);
         if (owner != null)
-            msg.Owner = owner;
+        {
+            try
+            {
+                msg.Owner = owner;
+            }
+            catch (InvalidOperationException)
+            {
+                // 同上：Owner 设置失败时降级为无 Owner 弹窗
+            }
+        }
 
         msg.ShowDialog();
         return msg.Result;

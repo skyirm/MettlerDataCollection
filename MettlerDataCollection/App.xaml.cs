@@ -27,6 +27,13 @@ public partial class App : Application
         PowerManagement.PreventSleepAndDisplayTurnOff();
         base.OnStartup(e);
 
+        // 关键：默认 ShutdownMode=OnLastWindowClose，但 StartupSettingsWindow.ShowDialog 关闭后
+        // Application.Windows 集合是空的（MainWindow 还没 Show），WPF 内部在某些环境下会判定
+        // "应该 Shutdown" → MainWindow.Show() 立即被 WPF 内部关掉，Loaded 都不触发。
+        // 解决：OnStartup 早期设 OnExplicitShutdown 绕开这个空窗期自动 Shutdown；
+        //       MainWindow Show() 之后再设回 OnMainWindowClose，关窗时正常 Shutdown。
+        Current.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
         // 三层全局异常处理（任一崩溃都不会让进程静默退出）
         Current.DispatcherUnhandledException += App_DispatcherUnhandledException;
         AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
@@ -41,10 +48,31 @@ public partial class App : Application
             return;
         }
 
-        var mainWindow = new MainWindow(
-            new DataPersistenceService(startupWindow.DataPath),
-            startupWindow.SelectedDevice);
-        mainWindow.Show();
+        try
+        {
+            var mainWindow = new MainWindow(
+                new DataPersistenceService(startupWindow.DataPath),
+                startupWindow.SelectedDevice);
+
+            mainWindow.Show();
+
+            // MainWindow 已 Show，恢复 ShutdownMode 到 OnMainWindowClose：
+            // MainWindow 关闭时正常 Shutdown，但不会被"空 Application.Windows 集合"提前触发。
+            Current.ShutdownMode = ShutdownMode.OnMainWindowClose;
+
+            // 先以 Normal 状态让窗口正常加载（避免 WindowState=Maximized + 缺位置
+            // 触发 WPF 内部"不显示+立即关闭"），再在 Loaded 之后切到 Maximized。
+            // 用 Loaded 事件确保窗口已布局完成再最大化，不会触发 WPF 异常路径。
+            mainWindow.Loaded += (_, _) => mainWindow.WindowState = WindowState.Maximized;
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"主窗口创建/显示失败: {ex}");
+            MessageBox.Show(
+                "主窗口创建/显示失败。\n\n" + ex.Message,
+                "启动失败", MessageBoxButton.OK, MessageBoxImage.Error);
+            Shutdown();
+        }
     }
 
     protected override void OnExit(ExitEventArgs e)
@@ -78,8 +106,8 @@ public partial class App : Application
         try
         {
             var ex = e.ExceptionObject as Exception;
-            Log.Error(ex.Message);
-            MessageBox.Show("应用程序发生非UI线程异常: " + ex.Message,
+            if (ex != null) Log.Error(ex.Message);
+            MessageBox.Show("应用程序发生非UI线程异常: " + ex?.Message,
                 "应用程序错误", MessageBoxButton.OK, MessageBoxImage.Error);
         }
         catch (Exception ex)

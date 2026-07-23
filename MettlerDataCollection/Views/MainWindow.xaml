@@ -3,7 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:scottPlot="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF"
         Title="梅特勒S470数据采集" Height="450" Width="1100" MinWidth="700"
-        Closing="MainWindow_Closing" WindowState="Maximized" ResizeMode="CanResize">
+        Closing="MainWindow_Closing" ResizeMode="CanResize"
+        WindowStartupLocation="CenterScreen">
 
     <Grid>
         <Grid.RowDefinitions>
