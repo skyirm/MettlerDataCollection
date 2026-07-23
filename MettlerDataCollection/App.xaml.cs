@@ -1,5 +1,8 @@
+using System.IO;
 using System.Windows;
 using System.Windows.Threading;
+using MettlerDataCollection.Device;
+using MettlerDataCollection.Properties;
 using MettlerDataCollection.Services;
 using MettlerDataCollection.Views;
 using MettlerDataCollection.Views.Startup;
@@ -39,20 +42,29 @@ public partial class App : Application
         AppDomain.CurrentDomain.UnhandledException += CurrentDomain_UnhandledException;
         TaskScheduler.UnobservedTaskException += TaskScheduler_UnobservedTaskException;
 
-        // 启动设置窗口：用户选数据目录 + 设备；取消则退出
-        var startupWindow = new StartupSettingsWindow();
-        if (startupWindow.ShowDialog() != true || startupWindow.SelectedDevice is null)
+        // 优先尝试从 Settings 加载上次保存的启动配置：路径 + 设备类型都齐 + 路径存在 + 设备类型能找到
+        // 才直接走，避免每次启动都让用户重选。
+        string? dataPath;
+        IDevice? device;
+        if (!TryLoadSavedStartupSettings(out dataPath, out device))
         {
-            Log.Information("用户在启动设置窗口取消，程序退出。");
-            Shutdown();
-            return;
+            // 加载失败（首次启动 / 之前没保存 / 目录被删 / 设备类型被移除）→ 弹窗让用户重选
+            var startupWindow = new StartupSettingsWindow();
+            if (startupWindow.ShowDialog() != true || startupWindow.SelectedDevice is null)
+            {
+                Log.Information("用户在启动设置窗口取消，程序退出。");
+                Shutdown();
+                return;
+            }
+            dataPath = startupWindow.DataPath;
+            device = startupWindow.SelectedDevice;
         }
 
         try
         {
             var mainWindow = new MainWindow(
-                new DataPersistenceService(startupWindow.DataPath),
-                startupWindow.SelectedDevice);
+                new DataPersistenceService(dataPath),
+                device);
 
             mainWindow.Show();
 
@@ -73,6 +85,51 @@ public partial class App : Application
                 "启动失败", MessageBoxButton.OK, MessageBoxImage.Error);
             Shutdown();
         }
+    }
+
+    /// <summary>
+    ///     从 <see cref="Settings.Default" /> 加载上次保存的启动配置。
+    ///     成功条件：DataPath 非空 + 目录存在 + SelectedDeviceTypeName 非空 + 能在 DeviceCatalog 里找到。
+    ///     任意一条不满足返回 false（让 StartupSettingsWindow 让用户重选）。
+    /// </summary>
+    private bool TryLoadSavedStartupSettings(out string? dataPath, out IDevice? device)
+    {
+        dataPath = null;
+        device = null;
+
+        var savedPath = Settings.Default.DataPath;
+        var savedTypeName = Settings.Default.SelectedDeviceTypeName;
+
+        if (string.IsNullOrWhiteSpace(savedPath) || string.IsNullOrWhiteSpace(savedTypeName))
+            return false;
+
+        if (!Directory.Exists(savedPath))
+        {
+            Log.Warning($"启动设置：上次保存的数据目录不存在: {savedPath}");
+            return false;
+        }
+
+        var deviceType = DeviceCatalog.DiscoverDeviceTypes()
+            .FirstOrDefault(t => t.FullName == savedTypeName);
+        if (deviceType is null)
+        {
+            Log.Warning($"启动设置：上次保存的设备类型未找到: {savedTypeName}");
+            return false;
+        }
+
+        try
+        {
+            device = DeviceCatalog.CreateDevice(deviceType);
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"创建设备失败: {ex}");
+            return false;
+        }
+
+        dataPath = savedPath;
+        Log.Information($"启动设置从保存值恢复：路径={dataPath}, 设备={device.Name}");
+        return true;
     }
 
     protected override void OnExit(ExitEventArgs e)
