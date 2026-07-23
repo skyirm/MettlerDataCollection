@@ -13,6 +13,7 @@ using MettlerDataCollection.Views.Dialogs;
 using MettlerDataCollection.Views.Help;
 using MettlerDataCollection.Views.Recovery;
 using MettlerDataCollection.Views.DataSettings;
+using MettlerDataCollection.Views.Startup;
 using Microsoft.Win32;
 using ScottPlot;
 using ScottPlot.DataGenerators;
@@ -544,6 +545,27 @@ public partial class MainWindow : Window, IDisposable
             WindowStartupLocation = WindowStartupLocation.CenterOwner
         };
         settingWindow.ShowDialog();
+    }
+
+    /// <summary>
+    ///     设置 → 重新选择设备：弹 StartupSettingsWindow（只显示设备选择，路径由"采集设置"管）。
+    ///     选择保存到 Settings，但**当前会话的 MainWindow._s470K 已绑定旧实例，无法热切换**，
+    ///     所以提示用户重启应用后生效。
+    /// </summary>
+    private void Button_OpenDeviceSelection(object sender, RoutedEventArgs e)
+    {
+        var dlg = new StartupSettingsWindow
+        {
+            Owner = this,
+            WindowStartupLocation = WindowStartupLocation.CenterOwner,
+            ShowDataPath = false,  // 只选设备；路径由"采集设置"窗口管理
+        };
+        if (dlg.ShowDialog() != true)
+            return;
+
+        FluentMessageBox.Show(
+            "设备已保存。\n\n请重启应用使新设置生效。",
+            "设置已保存", MessageBoxButton.OK, MessageBoxImage.Information, this);
     }
 
     private void Button_OpenHelp(object sender, RoutedEventArgs e)
