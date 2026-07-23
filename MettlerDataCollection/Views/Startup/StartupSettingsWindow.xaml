@@ -16,8 +16,8 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- 第 1 行：数据存放路径 -->
-        <Grid Grid.Row="0">
+        <!-- 第 1 行：数据存放路径（ShowDataPath=false 时整行隐藏） -->
+        <Grid x:Name="DataPathRow" Grid.Row="0">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />

@@ -20,11 +20,22 @@ public partial class StartupSettingsWindow : Window
     /// <summary>用户在确认时选中的设备实例（按 DeviceComboBox.SelectedItem 的类型创建）。</summary>
     public IDevice? SelectedDevice { get; private set; }
 
+    /// <summary>
+    ///     true（默认）= 显示"数据存放路径"行（首次启动 OnStartup 走这个模式）；
+    ///     false = 隐藏路径行，只让用户选设备（菜单"重新选择设备"走这个模式，
+    ///             因为运行时路径由"采集设置"窗口管理，路径已经存好）。
+    /// </summary>
+    public bool ShowDataPath { get; set; } = true;
+
     public StartupSettingsWindow()
     {
         InitializeComponent();
 
-        // 记住上次的目录
+        // 注意：ShowDataPath 是用对象初始化器在构造函数返回后设的，构造函数里读还是默认值。
+        // 所以 UI 调整（隐藏路径行 / 改 Title / 缩高度）挪到 Loaded 里做，那时值已生效。
+        Loaded += OnLoadedAdjustUi;
+
+        // 记住上次的目录（即使隐藏也填值，避免 ShowDataPath 切换时的边角 case）
         DataPathTextBox.Text = Settings.Default.DataPath ?? string.Empty;
 
         // 反射发现所有 IDevice 实现
@@ -38,18 +49,41 @@ public partial class StartupSettingsWindow : Window
         }
         else
         {
+            // 找已存设备类型的下标，作为默认选中
+            var savedType = FindSavedDeviceType(deviceTypes);
+            int defaultIndex = 0;
+
             foreach (var type in deviceTypes)
             {
                 // 用一个临时实例拿 Name/Description
                 var instance = DeviceCatalog.CreateDevice(type);
                 DeviceComboBox.Items.Add(new DeviceOption(type, instance.Name, instance.Description));
+                if (savedType != null && type == savedType)
+                    defaultIndex = DeviceComboBox.Items.Count - 1;
             }
             DeviceComboBox.DisplayMemberPath = nameof(DeviceOption.DisplayText);
-            // 默认选第一个
-            if (DeviceComboBox.Items.Count > 0) DeviceComboBox.SelectedIndex = 0;
+            DeviceComboBox.SelectedIndex = defaultIndex;
         }
 
         UpdateOkButtonState();
+    }
+
+    private void OnLoadedAdjustUi(object sender, RoutedEventArgs e)
+    {
+        // 一次性调整（Loaded 只触发一次，所以不需要 -= ）
+        if (!ShowDataPath)
+        {
+            DataPathRow.Visibility = Visibility.Collapsed;
+            Height = 180;
+            Title = "选择设备";
+        }
+    }
+
+    private static Type? FindSavedDeviceType(IReadOnlyList<Type> types)
+    {
+        var savedName = Settings.Default.SelectedDeviceTypeName;
+        if (string.IsNullOrWhiteSpace(savedName)) return null;
+        return types.FirstOrDefault(t => t.FullName == savedName);
     }
 
     private void BrowseButton_Click(object sender, RoutedEventArgs e)
@@ -96,8 +130,10 @@ public partial class StartupSettingsWindow : Window
             return;
         }
 
-        // 把用户选定的目录保存，下次启动默认填入
-        Settings.Default.DataPath = DataPath;
+        // 只选设备模式下不写 DataPath（路径由"采集设置"窗口管理，保留原值）
+        if (ShowDataPath)
+            Settings.Default.DataPath = DataPath;
+        Settings.Default.SelectedDeviceTypeName = option.DeviceType.FullName;
         Settings.Default.Save();
 
         Log.Information($"启动设置完成：路径={DataPath}, 设备={SelectedDevice.Name}");
@@ -139,8 +175,9 @@ public partial class StartupSettingsWindow : Window
 
     private void UpdateOkButtonState()
     {
-        var pathOk = !string.IsNullOrWhiteSpace(DataPathTextBox.Text)
-                     && Directory.Exists(DataPathTextBox.Text.Trim());
+        var pathOk = !ShowDataPath
+                     || (!string.IsNullOrWhiteSpace(DataPathTextBox.Text)
+                         && Directory.Exists(DataPathTextBox.Text.Trim()));
         var deviceOk = DeviceComboBox.SelectedItem is DeviceOption;
         OkButton.IsEnabled = pathOk && deviceOk;
     }

@@ -94,7 +94,19 @@ namespace MettlerDataCollection.Properties {
                 this["DataPath"] = value;
             }
         }
-        
+
+        [global::System.Configuration.UserScopedSettingAttribute()]
+        [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
+        [global::System.Configuration.DefaultSettingValueAttribute("")]
+        public string SelectedDeviceTypeName {
+            get {
+                return ((string)(this["SelectedDeviceTypeName"]));
+            }
+            set {
+                this["SelectedDeviceTypeName"] = value;
+            }
+        }
+
         [global::System.Configuration.UserScopedSettingAttribute()]
         [global::System.Diagnostics.DebuggerNonUserCodeAttribute()]
         [global::System.Configuration.DefaultSettingValueAttribute("")]

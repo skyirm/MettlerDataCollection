@@ -20,6 +20,9 @@
     <Setting Name="DataPath" Type="System.String" Scope="User">
       <Value Profile="(Default)" />
     </Setting>
+    <Setting Name="SelectedDeviceTypeName" Type="System.String" Scope="User">
+      <Value Profile="(Default)" />
+    </Setting>
     <Setting Name="ExportDataPath" Type="System.String" Scope="User">
       <Value Profile="(Default)" />
     </Setting>
