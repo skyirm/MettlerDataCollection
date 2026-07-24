@@ -3,12 +3,14 @@ using System.ComponentModel;
 using System.IO;
 using System.IO.Ports;
 using System.Text;
+using System.Threading;
 using System.Windows;
 using System.Windows.Threading;
 using MettlerDataCollection.Device;
 using MettlerDataCollection.Properties;
 using MettlerDataCollection.Services;
 using MettlerDataCollection.Views.Connection;
+using MettlerDataCollection.Views.Controls;
 using MettlerDataCollection.Views.Dialogs;
 using MettlerDataCollection.Views.Help;
 using MettlerDataCollection.Views.Recovery;
@@ -68,6 +70,9 @@ public partial class MainWindow : Window, IDisposable
         _device.OnDataProduced += OnDataProduced;
         _device.OnParseError += OnParseError;
 
+        // 全局"首次错误"提示：进程级别只弹一次。ErrorLogService 在 App.OnStartup 就已注册。
+        ErrorLogService.Instance.FirstErrorOccurred += OnFirstLogError;
+
         InitPlot();
         InitPlotUserInput();
         // 切换"全部/最新"时立即应用新模式，跳过 5s 用户视图保护期
@@ -95,7 +100,23 @@ public partial class MainWindow : Window, IDisposable
 
     private void OnParseError(string error)
     {
+        // 错误日志统一走 Serilog → ErrorLogService.Instance → ErrorLog 抽屉显示。
+        // 首次错误会由订阅 FirstErrorOccurred 的 handler 弹一次提示。
         Log.Error($"数据解析错误: {error}");
+    }
+
+    /// <summary>
+    ///     进程级别"首次错误"提示：Serilog 第一次产生 Warning+ 日志时弹一次，
+    ///     告诉用户去看底部错误抽屉。后续错误只进抽屉不弹窗。
+    /// </summary>
+    private void OnFirstLogError(ErrorLogEntry entry)
+    {
+        // FirstErrorOccurred 在 Serilog sink 线程触发（可能是串口接收线程），marshal 回 UI
+        Dispatcher.BeginInvoke(() =>
+            FluentMessageBox.Show(
+                $"发生错误，请查看底部\"错误日志\"抽屉了解详情。\n\n首次错误：\n{entry.Message}",
+                "错误",
+                MessageBoxButton.OK, MessageBoxImage.Warning, this));
     }
 
     private void AddDataPoint(MeasureData data)
@@ -419,6 +440,7 @@ public partial class MainWindow : Window, IDisposable
                     Log.Information($"串口 {SelectedComport} 已关闭。");
                 }
                 _watcher.Stop();
+                ErrorLogService.Instance.FirstErrorOccurred -= OnFirstLogError;
             }
         }
         catch (Exception ex)
@@ -638,6 +660,7 @@ public partial class MainWindow : Window, IDisposable
                 if (_serialPort.IsOpen) _serialPort.Close();
                 _serialPort.Dispose();
                 _persistenceService.Stop();
+                ErrorLogService.Instance.FirstErrorOccurred -= OnFirstLogError;
             }
             _disposed = true;
         }

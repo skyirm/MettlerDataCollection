@@ -1,6 +1,7 @@
 using Microsoft.Win32;
 using MettlerDataCollection.Device;
 using MettlerDataCollection.Properties;
+using MettlerDataCollection.Views.Controls;
 using MettlerDataCollection.Views.Dialogs;
 using ScottPlot;
 using ScottPlot.Plottables;
@@ -94,6 +95,8 @@ public partial class RecoverData : Window
 
     private void OnParseError(string error)
     {
+        // 错误日志统一走 Serilog → ErrorLogService.Instance → ErrorLog 抽屉显示。
+        // 全局"首次错误"弹窗由 MainWindow 订阅 FirstErrorOccurred 处理。
         Log.Error($"[RecoverData] 解析错误: {error}");
     }
 

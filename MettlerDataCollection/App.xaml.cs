@@ -19,11 +19,13 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         // 日志：每天一个新文件，写到 ./log/app_log-YYYYMMDD.txt
+        // 同时挂一个 ErrorLogService（Serilog sink）把 Warning+ 推送给 UI 错误抽屉。
         Log.Logger = new LoggerConfiguration()
             .MinimumLevel.Debug()
             .WriteTo.File("log/app_log.txt",
                 rollingInterval: RollingInterval.Day,
                 outputTemplate: "{Timestamp:yyyy-MM-dd HH:mm:ss.fff zzz} [{Level:u3}] {Message:lj}{NewLine}{Exception}")
+            .WriteTo.Sink(ErrorLogService.Instance)
             .CreateLogger();
 
         Log.Information("应用程序已启动。");

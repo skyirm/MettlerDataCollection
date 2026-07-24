@@ -5,8 +5,9 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:MettlerDataCollection"
         xmlns:scottPlot="clr-namespace:ScottPlot.WPF;assembly=ScottPlot.WPF"
+        xmlns:controls="clr-namespace:MettlerDataCollection.Views.Controls"
         mc:Ignorable="d"
-        Title="导出历史数据" 
+        Title="导出历史数据"
         Height="500" Width="900"
         Background="#F5F6FA">
 
@@ -14,6 +15,7 @@
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
         <!-- 顶部工具栏 -->
@@ -76,6 +78,9 @@
                 BorderThickness="1">
             <scottPlot:WpfPlot x:Name="MainPlot"/>
         </Border>
+
+        <!-- 错误日志抽屉（常驻底部，可折叠） -->
+        <controls:ErrorLog Grid.Row="2" x:Name="ErrorLog" />
 
     </Grid>
 </Window>
