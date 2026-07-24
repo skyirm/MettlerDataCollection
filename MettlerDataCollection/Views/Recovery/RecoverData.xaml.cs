@@ -20,6 +20,9 @@ public partial class RecoverData : Window
     private DataLogger _conductivityLogger;
     private DataLogger _phLogger;
 
+    /// <summary>当前已加载的文件路径。null = 没加载。模式切换时拿来重解析。</summary>
+    private string? _loadedFilePath;
+
     /// <summary>
     ///     用主窗口当前选中的设备类型（<paramref name="deviceType" />）自己 new 一个临时 <see cref="IDevice" />
     ///     解析历史数据。
@@ -109,9 +112,6 @@ public partial class RecoverData : Window
 
             if (result == false) return;
 
-            _conductivityLogger.Clear();
-            _phLogger.Clear();
-
             var fileName = openFileDialog.FileName;
             if (!File.Exists(fileName))
             {
@@ -120,28 +120,59 @@ public partial class RecoverData : Window
             }
 
             this.FileNameText.Text = Path.GetFileName(fileName);
+            _loadedFilePath = fileName;
 
-            // 工作模式固定为 pH + 电导率双工：恢复 device 内部配对状态
-            _device.CurrentMode = CollectMode.PH_AND_COND;
-
-            foreach (var line in await File.ReadAllLinesAsync(fileName, Encoding.UTF8))
-            {
-                var parts = line.Split('|');
-                if (parts.Length >= 2)
-                {
-                    // 写入格式是 "yyyy-MM-dd HH:mm:ss.fff| 原始消息"
-                    // parts[1] 是 | 之后的原始消息，跟实时采集时 device.ParseData 收到的格式一致
-                    _device.ParseData(parts[1].Trim());
-                }
-            }
-
-            MainPlot.Refresh();
+            await ReloadCurrentFile();
         }
         catch (Exception ex)
         {
             Log.Error($"读取文件时发生错误: {ex.Message}");
             FluentMessageBox.Show($"读取文件时发生错误: {ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error, this);
         }
+    }
+
+    /// <summary>
+    ///     按当前 combobox 选中的模式重新解析已加载的文件。
+    ///     模式切换时调用，免去让用户重新选一次文件。
+    /// </summary>
+    private async Task ReloadCurrentFile()
+    {
+        if (_loadedFilePath is null || !File.Exists(_loadedFilePath)) return;
+
+        _conductivityLogger.Clear();
+        _phLogger.Clear();
+        _device.CurrentMode = GetSelectedMode();
+
+        foreach (var line in await File.ReadAllLinesAsync(_loadedFilePath, Encoding.UTF8))
+        {
+            var parts = line.Split('|');
+            if (parts.Length >= 2)
+            {
+                // 写入格式是 "yyyy-MM-dd HH:mm:ss.fff| 原始消息"
+                // parts[1] 是 | 之后的原始消息，跟实时采集时 device.ParseData 收到的格式一致
+                _device.ParseData(parts[1].Trim());
+            }
+        }
+
+        MainPlot.Refresh();
+    }
+
+    private void CollectModeCombox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        // 已加载文件时切模式 → 重解析；还没选文件则忽略，等选完文件自动用当前模式
+        if (_loadedFilePath is null) return;
+        _ = ReloadCurrentFile();
+    }
+
+    private CollectMode GetSelectedMode()
+    {
+        // 和 MainWindow.CollectModeCombox 顺序保持一致：0=pH+电导率，1=pH，2=电导率
+        return CollectModeCombox.SelectedIndex switch
+        {
+            1 => CollectMode.PH_ONLY,
+            2 => CollectMode.COND_ONLY,
+            _ => CollectMode.PH_AND_COND,
+        };
     }
 
     private void ExportData(object sender, RoutedEventArgs e)
@@ -170,15 +201,31 @@ public partial class RecoverData : Window
             // 获取用户选择的文件路径（包含文件名）
             var filename = saveFileDialog.FileName;
 
-            // 工作模式固定为 pH + 电导率双工，按 time 对齐双序列导出
-            contentString.AppendLine("Time(s) pH Conductivity(µS/cm)");
-            foreach (var record in _phLogger.Data.Coordinates)
+            // 按当前模式生成导出列（与 MainWindow.BuildExportContent 保持一致）
+            switch (_device.CurrentMode)
             {
-                var time = record.X;
-                var pH = record.Y;
-                var conductivityRecord = _conductivityLogger.Data.Coordinates.FirstOrDefault(r => r.X == time);
-                var conductivity = conductivityRecord != null ? conductivityRecord.Y : 0;
-                contentString.AppendLine($"{time,6} {pH,6} {conductivity,7}");
+                case CollectMode.PH_ONLY:
+                    contentString.AppendLine("Time(s) pH");
+                    foreach (var record in _phLogger.Data.Coordinates)
+                        contentString.AppendLine($"{record.X,5} {record.Y,7}");
+                    break;
+                case CollectMode.COND_ONLY:
+                    contentString.AppendLine("Time(s) Conductivity(µS/cm)");
+                    foreach (var record in _conductivityLogger.Data.Coordinates)
+                        contentString.AppendLine($"{record.X,5} {record.Y,7}");
+                    break;
+                case CollectMode.PH_AND_COND:
+                default:
+                    contentString.AppendLine("Time(s) pH Conductivity(µS/cm)");
+                    foreach (var record in _phLogger.Data.Coordinates)
+                    {
+                        var time = record.X;
+                        var pH = record.Y;
+                        var conductivityRecord = _conductivityLogger.Data.Coordinates.FirstOrDefault(r => r.X == time);
+                        var conductivity = conductivityRecord != null ? conductivityRecord.Y : 0;
+                        contentString.AppendLine($"{time,6} {pH,6} {conductivity,7}");
+                    }
+                    break;
             }
 
             // 实际保存文件的代码（例如使用 System.IO.File.WriteAllText）

@@ -68,8 +68,6 @@ namespace MettlerDataCollection.Device
 
         /// <summary>
         ///     根据 <see cref="CurrentMode" /> 解析 1 行数据。
-        ///     当前仅实现 <see cref="CollectMode.PH_AND_COND" />（双工模式）；
-        ///     单工模式（PH_ONLY / COND_ONLY）暂未实现，触发 <see cref="OnParseError" /> 提示。
         /// </summary>
         public void ParseData(string line)
         {
@@ -79,15 +77,73 @@ namespace MettlerDataCollection.Device
                     ParsePhAndCond(line);
                     break;
                 case CollectMode.PH_ONLY:
-                    OnParseError?.Invoke($"PH_ONLY 单工模式暂未实现（line: {line}）");
+                    ParsePhOnly(line);
                     break;
                 case CollectMode.COND_ONLY:
-                    OnParseError?.Invoke($"COND_ONLY 单工模式暂未实现（line: {line}）");
+                    ParseCondOnly(line);
                     break;
                 default:
                     OnParseError?.Invoke($"未知的采集模式 {CurrentMode}（line: {line}）");
                     break;
             }
+        }
+
+        /// <summary>
+        ///     单工 pH 模式解析。
+        ///     协议格式：<c>时间s pH值</c>，如 <c>10s 7.42</c>。
+        ///     单行就出一条 <see cref="MeasureData" />（Conductivity / PhTemp / ConductivityTemp 留 0/null）。
+        /// </summary>
+        private void ParsePhOnly(string line)
+        {
+            var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length < 2)
+            {
+                OnParseError?.Invoke($"PH_ONLY 行字段少于 2：{line}");
+                return;
+            }
+
+            var time = int.TryParse(parts[0].Replace("s", ""), out var t) ? t : 0;
+            if (!double.TryParse(parts[1], out var pH))
+            {
+                OnParseError?.Invoke($"PH_ONLY pH 值无法解析（line: {line}）");
+                return;
+            }
+
+            OnDataProduced?.Invoke(new MeasureData(
+                Ph: pH,
+                Conductivity: 0,
+                Time: time,
+                PhTemp: null,
+                ConductivityTemp: null));
+        }
+
+        /// <summary>
+        ///     单工电导率模式解析。
+        ///     协议格式：<c>时间s 电导率值</c>，如 <c>10s 1450.0</c>。
+        ///     单行就出一条 <see cref="MeasureData" />（Ph / PhTemp / ConductivityTemp 留 0/null）。
+        /// </summary>
+        private void ParseCondOnly(string line)
+        {
+            var parts = line.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length < 2)
+            {
+                OnParseError?.Invoke($"COND_ONLY 行字段少于 2：{line}");
+                return;
+            }
+
+            var time = int.TryParse(parts[0].Replace("s", ""), out var t) ? t : 0;
+            if (!double.TryParse(parts[1], out var cond))
+            {
+                OnParseError?.Invoke($"COND_ONLY 电导率值无法解析（line: {line}）");
+                return;
+            }
+
+            OnDataProduced?.Invoke(new MeasureData(
+                Ph: 0,
+                Conductivity: cond,
+                Time: time,
+                PhTemp: null,
+                ConductivityTemp: null));
         }
 
         /// <summary>

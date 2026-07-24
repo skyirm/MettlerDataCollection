@@ -41,7 +41,14 @@
                                TextTrimming="CharacterEllipsis"/>
                 </Border>
 
-                <!-- 采集模式固定为 pH + 电导率双工，不再提供选择 -->
+                <!-- 采集模式选择：决定 device 怎么解析每行数据 -->
+                <Label Content="采集模式" VerticalAlignment="Center" />
+                <ComboBox x:Name="CollectModeCombox" Width="100" Margin="2,0,2,0" VerticalAlignment="Center"
+                          SelectionChanged="CollectModeCombox_SelectionChanged">
+                    <ComboBoxItem Content="pH+电导率" IsSelected="True" />
+                    <ComboBoxItem Content="pH" />
+                    <ComboBoxItem Content="电导率" />
+                </ComboBox>
 
                 <!-- 文件按钮 -->
                 <Button Content="选择文件"

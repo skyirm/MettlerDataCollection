@@ -8,9 +8,9 @@ public enum CollectMode
     /// <summary>双工模式：仪器同时发 pH 消息和电导率消息，pH 消息带时间戳，电导率消息借前一条 pH 的时间戳</summary>
     PH_AND_COND,
 
-    /// <summary>单工模式：仅 pH（暂未实现）</summary>
+    /// <summary>单工模式：仅 pH。协议格式 <c>时间s pH值</c>（2 字段）</summary>
     PH_ONLY,
 
-    /// <summary>单工模式：仅电导率（暂未实现）</summary>
+    /// <summary>单工模式：仅电导率。协议格式 <c>时间s 电导率值</c>（2 字段）</summary>
     COND_ONLY,
 }
