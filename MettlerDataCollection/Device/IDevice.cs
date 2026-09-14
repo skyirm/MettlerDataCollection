@@ -19,6 +19,12 @@ namespace MettlerDataCollection.Device
         /// <summary>每切出一个完整行就触发一次。订阅者按行处理（写盘 / 解析等）。</summary>
         event Action<string> OnLinePreprocessed;
 
+        /// <summary>设备从打印页眉识别出采集模式时触发，供 UI 同步当前模式。</summary>
+        event Action<CollectMode>? OnCollectModeDetected;
+
+        /// <summary>解析可继续进行但发现数据顺序异常时触发（如同一通道重复到达）。</summary>
+        event Action<string>? OnParseWarning;
+
         /// <summary>解析失败时触发（如格式错误、模式不支持等）。ParseData 自身不抛异常。</summary>
         event Action<string> OnParseError;
 

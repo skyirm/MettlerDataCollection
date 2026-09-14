@@ -39,6 +39,7 @@ public partial class RecoverData : Window
 
         // 用 device 解析历史数据：每行触发 ParseData，OnDataProduced 把数据点加到 plot
         _device.OnDataProduced += OnDataProduced;
+        _device.OnParseWarning += OnParseWarning;
         _device.OnParseError += OnParseError;
     }
 
@@ -98,6 +99,11 @@ public partial class RecoverData : Window
         // 错误日志统一走 Serilog → ErrorLogService.Instance → ErrorLog 抽屉显示。
         // 全局"首次错误"弹窗由 MainWindow 订阅 FirstErrorOccurred 处理。
         Log.Error($"[RecoverData] 解析错误: {error}");
+    }
+
+    private void OnParseWarning(string warning)
+    {
+        Log.Warning($"[RecoverData] 解析警告: {warning}");
     }
 
     private async void ReadFile(object sender, RoutedEventArgs e)

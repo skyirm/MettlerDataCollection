@@ -13,7 +13,6 @@
             <RowDefinition Height="auto" />
             <RowDefinition />
             <RowDefinition Height="auto" />
-            <RowDefinition Height="auto" />
         </Grid.RowDefinitions>
         <Menu Grid.Row="0" VerticalAlignment="Top">
             <MenuItem Header="文件">
@@ -28,6 +27,7 @@
             <MenuItem Header="关于">
                 <MenuItem Header="操作指南" Click="Button_OpenOperationGuide" />
                 <MenuItem Header="帮助" Click="Button_OpenHelp" />
+                <MenuItem Header="更新日志" Click="Button_OpenUpdateLog" />
                 <MenuItem Header="关于" Click="Button_OpenAbout" />
             </MenuItem>
         </Menu>
@@ -71,8 +71,7 @@
             <Label x:Name="dataCountLabel" VerticalAlignment="Center" />
             <Label x:Name="UserViewHint" VerticalAlignment="Center" Foreground="Gray" />
         </StackPanel>
-
-        <!-- 错误日志抽屉（常驻底部，可折叠） -->
-        <controls:ErrorLog Grid.Row="4" x:Name="ErrorLog" />
+        <controls:ErrorLog Grid.Row="3" x:Name="ErrorLog" HorizontalAlignment="Right"
+                           Margin="0,2,8,2" VerticalAlignment="Center" />
     </Grid>
 </Window>

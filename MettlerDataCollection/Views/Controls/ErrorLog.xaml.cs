@@ -1,4 +1,3 @@
-using System;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
@@ -7,35 +6,16 @@ using Serilog.Events;
 
 namespace MettlerDataCollection.Views.Controls;
 
-/// <summary>
-///     全局错误日志抽屉：常驻底部的滚动日志条。
-///     订阅 <see cref="ErrorLogService.Instance" /> 的 <see cref="ErrorLogService.EntryAdded" /> 事件，
-///     把 Serilog 的 Warning+ 日志实时显示到 UI。
-/// </summary>
-/// <remarks>
-///     <para>
-///         任何地方调 <c>Log.Error / Log.Warning / Log.Fatal</c> 都会进这里。
-///         Info / Debug 被 sink 过滤掉，避免应用启动那一堆 Log.Information 刷屏。
-///     </para>
-///     <para>
-///         跨线程安全：Serilog sink 在任意线程触发 <see cref="ErrorLogService.Emit" />，
-///         内部 marshal 到 UI 线程再加 ListBox。
-///     </para>
-///     <para>
-///         FIFO 上限 <see cref="MaxEntries" /> 条。折叠状态只控制列表显隐。
-///     </para>
-/// </remarks>
 public partial class ErrorLog : UserControl
 {
-    /// <summary>抽屉内最多保留的条目数。超出按 FIFO 丢弃最早的。</summary>
-    private const int MaxEntries = 200;
-
-    private bool _isCollapsed;
     private bool _subscribed;
+    private ErrorLogWindow? _window;
 
     public ErrorLog()
     {
         InitializeComponent();
+        // 在代码中设置引用，避免 XAML 将名称字面量误解析为 PlacementTarget 值。
+        LogPopup.PlacementTarget = BadgeButton;
         Loaded += OnLoaded;
         Unloaded += OnUnloaded;
     }
@@ -44,45 +24,92 @@ public partial class ErrorLog : UserControl
     {
         if (_subscribed) return;
         ErrorLogService.Instance.EntryAdded += OnEntryAdded;
+        ErrorLogService.Instance.EntriesCleared += OnEntriesCleared;
         _subscribed = true;
+        RefreshBadge();
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
         if (!_subscribed) return;
         ErrorLogService.Instance.EntryAdded -= OnEntryAdded;
+        ErrorLogService.Instance.EntriesCleared -= OnEntriesCleared;
         _subscribed = false;
     }
 
     private void OnEntryAdded(ErrorLogEntry entry)
     {
-        // Serilog sink 可能在任意线程触发，统一 marshal 回 UI 线程
         if (!Dispatcher.CheckAccess())
         {
-            Dispatcher.BeginInvoke(() => AddEntryInternal(entry));
+            Dispatcher.BeginInvoke(() => { AddEntry(entry); RefreshBadge(); });
             return;
         }
-        AddEntryInternal(entry);
+        AddEntry(entry);
+        RefreshBadge();
     }
 
-    private void AddEntryInternal(ErrorLogEntry entry)
+    private void OnEntriesCleared()
     {
-        var item = new ListBoxItem
+        if (!Dispatcher.CheckAccess())
         {
-            Content = entry.FormattedText,
+            Dispatcher.BeginInvoke(ClearListAndRefresh);
+            return;
+        }
+        ClearListAndRefresh();
+    }
+
+    private void ClearListAndRefresh()
+    {
+        EntryList.Items.Clear();
+        RefreshBadge();
+    }
+
+    private void AddEntry(ErrorLogEntry entry)
+    {
+        EntryList.Items.Add(CreateItem(entry));
+        while (EntryList.Items.Count > 200)
+            EntryList.Items.RemoveAt(0);
+        EntryList.ScrollIntoView(EntryList.Items[EntryList.Items.Count - 1]);
+    }
+
+    private void RefreshBadge()
+    {
+        var count = ErrorLogService.Instance.GetEntries().Count;
+        BadgeButton.Content = count == 0 ? "错误日志" : $"错误日志（{count}）";
+        BadgeButton.Foreground = count == 0 ? Brushes.DimGray : Brushes.Firebrick;
+    }
+
+    private static ListBoxItem CreateItem(ErrorLogEntry entry) => new()
+    {
+        Content = CreateCopyableText(entry),
+        Padding = new Thickness(0),
+    };
+
+    private static TextBox CreateCopyableText(ErrorLogEntry entry)
+    {
+        var textBox = new TextBox
+        {
+            Text = entry.FormattedText,
+            IsReadOnly = true,
+            IsReadOnlyCaretVisible = true,
+            TextWrapping = TextWrapping.Wrap,
+            AcceptsReturn = true,
+            Background = Brushes.Transparent,
+            BorderThickness = new Thickness(0),
             Foreground = ColorForLevel(entry.Level),
             Padding = new Thickness(4, 2, 4, 2),
             ToolTip = entry.ExceptionText ?? entry.Message,
         };
-        EntryList.Items.Add(item);
 
-        // FIFO：超出上限丢最早的
-        while (EntryList.Items.Count > MaxEntries)
-            EntryList.Items.RemoveAt(0);
-
-        // 自动滚到最后一条
-        if (EntryList.Items.Count > 0)
-            EntryList.ScrollIntoView(EntryList.Items[EntryList.Items.Count - 1]);
+        var copyMenuItem = new MenuItem { Header = "复制" };
+        copyMenuItem.Click += (_, _) =>
+        {
+            textBox.Focus();
+            textBox.Copy();
+        };
+        textBox.ContextMenu = new ContextMenu();
+        textBox.ContextMenu.Items.Add(copyMenuItem);
+        return textBox;
     }
 
     private static Brush ColorForLevel(LogEventLevel level) => level switch
@@ -93,15 +120,40 @@ public partial class ErrorLog : UserControl
         _ => Brushes.Black,
     };
 
-    private void ClearButton_Click(object sender, RoutedEventArgs e)
+    private void BadgeButton_Click(object sender, RoutedEventArgs e)
     {
+        if (LogPopup.IsOpen)
+        {
+            LogPopup.IsOpen = false;
+            return;
+        }
+
         EntryList.Items.Clear();
+        foreach (var entry in ErrorLogService.Instance.GetEntries())
+            EntryList.Items.Add(CreateItem(entry));
+        if (EntryList.Items.Count > 0)
+            EntryList.ScrollIntoView(EntryList.Items[EntryList.Items.Count - 1]);
+        LogPopup.IsOpen = true;
     }
 
-    private void ToggleButton_Click(object sender, RoutedEventArgs e)
+    private void ClearButton_Click(object sender, RoutedEventArgs e) => ErrorLogService.Instance.ClearEntries();
+
+    private void ClosePopup_Click(object sender, RoutedEventArgs e) => LogPopup.IsOpen = false;
+
+    private void OpenWindow_Click(object sender, RoutedEventArgs e)
     {
-        _isCollapsed = !_isCollapsed;
-        EntryList.Visibility = _isCollapsed ? Visibility.Collapsed : Visibility.Visible;
-        ToggleButton.Content = _isCollapsed ? "展开" : "折叠";
+        if (_window is null)
+        {
+            _window = new ErrorLogWindow { Owner = Window.GetWindow(this) };
+            _window.Closed += (_, _) => _window = null;
+            _window.Show();
+        }
+        else
+        {
+            if (_window.WindowState == WindowState.Minimized)
+                _window.WindowState = WindowState.Normal;
+            _window.Activate();
+        }
+        LogPopup.IsOpen = false;
     }
 }

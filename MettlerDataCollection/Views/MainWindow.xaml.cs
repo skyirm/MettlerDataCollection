@@ -67,6 +67,8 @@ public partial class MainWindow : Window, IDisposable
         HandleComPortsChanged(new List<string>(SerialPort.GetPortNames()));
 
         _device.OnLinePreprocessed += OnLinePreprocessed;
+        _device.OnCollectModeDetected += OnCollectModeDetected;
+        _device.OnParseWarning += OnParseWarning;
         _device.OnDataProduced += OnDataProduced;
         _device.OnParseError += OnParseError;
 
@@ -98,11 +100,30 @@ public partial class MainWindow : Window, IDisposable
         Dispatcher.BeginInvoke(() => AddDataPoint(data));
     }
 
+    private void OnCollectModeDetected(CollectMode mode)
+    {
+        // 串口接收在后台线程，ComboBox 必须通过 Dispatcher 更新。
+        Dispatcher.BeginInvoke(() =>
+        {
+            CollectModeCombox.SelectedIndex = mode switch
+            {
+                CollectMode.PH_ONLY => 1,
+                CollectMode.COND_ONLY => 2,
+                _ => 0,
+            };
+        });
+    }
+
     private void OnParseError(string error)
     {
         // 错误日志统一走 Serilog → ErrorLogService.Instance → ErrorLog 抽屉显示。
         // 首次错误会由订阅 FirstErrorOccurred 的 handler 弹一次提示。
         Log.Error($"数据解析错误: {error}");
+    }
+
+    private void OnParseWarning(string warning)
+    {
+        Log.Warning($"数据解析警告: {warning}");
     }
 
     /// <summary>
@@ -114,7 +135,7 @@ public partial class MainWindow : Window, IDisposable
         // FirstErrorOccurred 在 Serilog sink 线程触发（可能是串口接收线程），marshal 回 UI
         Dispatcher.BeginInvoke(() =>
             FluentMessageBox.Show(
-                $"发生错误，请查看底部\"错误日志\"抽屉了解详情。\n\n首次错误：\n{entry.Message}",
+                $"发生错误，请点击主界面\"错误日志\"查看详情。\n\n首次错误：\n{entry.Message}",
                 "错误",
                 MessageBoxButton.OK, MessageBoxImage.Warning, this));
     }
@@ -222,11 +243,14 @@ public partial class MainWindow : Window, IDisposable
 
     private void InitSerialPort()
     {
-        _serialPort.BaudRate = 9600;
-        _serialPort.DataBits = 8;
-        _serialPort.Parity = Parity.None;
-        _serialPort.StopBits = StopBits.One;
-        _serialPort.Handshake = Handshake.XOnXOff;
+        var settings = Settings.Default;
+
+        // 从用户设置加载串口参数；首次运行时由 Settings.settings 提供默认值。
+        _serialPort.BaudRate = settings.BaudRate;
+        _serialPort.DataBits = settings.DataBits;
+        _serialPort.Parity = (Parity)settings.Parity;
+        _serialPort.StopBits = (StopBits)settings.StopBits;
+        _serialPort.Handshake = (Handshake)settings.Handshake;
         _serialPort.DataReceived += SerialPort_DataReceived;
         _serialPort.ReceivedBytesThreshold = 1;
     }
@@ -525,14 +549,53 @@ public partial class MainWindow : Window, IDisposable
 
     private void Button_OpenTestPage(object sender, RoutedEventArgs e)
     {
+        // 测试窗口使用独立的 SerialPort。打开前必须彻底释放主窗口串口，
+        // 同时清理采集状态，避免主界面仍显示“采集中”或继续处理后台数据。
+        if (!PrepareForTestConnection())
+            return;
+
         var testWindow = new TestConnection { Owner = this, WindowStartupLocation = WindowStartupLocation.CenterOwner };
         testWindow.ShowDialog();
+    }
+
+    /// <summary>
+    ///     打开测试连接窗口前断开主串口并恢复主界面初始状态。
+    /// </summary>
+    private bool PrepareForTestConnection()
+    {
+        try
+        {
+            _isCollecting = false;
+            _dispatcherTimer.Stop();
+
+            if (_serialPort.IsOpen)
+            {
+                _serialPort.Close();
+                Log.Information($"串口 {SelectedComport} 已断开（打开测试连接页面前）。");
+            }
+
+            ComportLabel.Content = "等待连接";
+            UpdateUiState(UiState.Initial);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"打开测试连接页面前断开串口失败: {ex.Message}");
+            ComportLabel.Content = $"错误：无法断开串口。{ex.Message}";
+            return false;
+        }
     }
 
     private void Button_OpenAbout(object sender, RoutedEventArgs e)
     {
         var aboutWindow = new About { Owner = this, WindowStartupLocation = WindowStartupLocation.CenterOwner };
         aboutWindow.Show();
+    }
+
+    private void Button_OpenUpdateLog(object sender, RoutedEventArgs e)
+    {
+        var updateLogWindow = new UpdateLog { Owner = this, WindowStartupLocation = WindowStartupLocation.CenterOwner };
+        updateLogWindow.Show();
     }
 
     private void Button_OpenPortSetting(object sender, RoutedEventArgs e)
@@ -657,6 +720,8 @@ public partial class MainWindow : Window, IDisposable
                 _dispatcherTimer.Stop();
                 _watcher.Stop();
                 _watcher.Dispose();
+                _device.OnCollectModeDetected -= OnCollectModeDetected;
+                _device.OnParseWarning -= OnParseWarning;
                 if (_serialPort.IsOpen) _serialPort.Close();
                 _serialPort.Dispose();
                 _persistenceService.Stop();

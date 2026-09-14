@@ -40,6 +40,10 @@ public sealed record ErrorLogEntry(
 /// </remarks>
 public sealed class ErrorLogService : ILogEventSink
 {
+    private const int MaxEntries = 200;
+    private readonly object _entriesLock = new();
+    private readonly List<ErrorLogEntry> _entries = new();
+
     public static ErrorLogService Instance { get; } = new();
 
     private ErrorLogService() { }
@@ -47,9 +51,24 @@ public sealed class ErrorLogService : ILogEventSink
     /// <summary>每条 Warning+ 日志都会触发。订阅者在自己的线程上下文里处理（Serilog 调用 Emit 时所在线程）。</summary>
     public event Action<ErrorLogEntry>? EntryAdded;
 
+    public event Action? EntriesCleared;
+
     /// <summary>进程生命周期内只触发一次：第一次出现 Warning+ 日志时触发。
     /// MainWindow 用它弹一次"请查看错误日志"提示，之后的错误只进抽屉不弹窗。</summary>
     public event Action<ErrorLogEntry>? FirstErrorOccurred;
+
+    public IReadOnlyList<ErrorLogEntry> GetEntries()
+    {
+        lock (_entriesLock)
+            return _entries.ToArray();
+    }
+
+    public void ClearEntries()
+    {
+        lock (_entriesLock)
+            _entries.Clear();
+        EntriesCleared?.Invoke();
+    }
 
     /// <summary>0=未通知，1=已通知。Interlocked 保护跨线程安全。</summary>
     private int _firstErrorNotified;
@@ -63,6 +82,13 @@ public sealed class ErrorLogService : ILogEventSink
             Level: logEvent.Level,
             Message: logEvent.RenderMessage(),
             ExceptionText: logEvent.Exception?.ToString());
+
+        lock (_entriesLock)
+        {
+            _entries.Add(entry);
+            while (_entries.Count > MaxEntries)
+                _entries.RemoveAt(0);
+        }
 
         EntryAdded?.Invoke(entry);
 
