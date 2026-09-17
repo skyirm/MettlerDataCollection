@@ -48,13 +48,13 @@ public class S470KTests
         s470k.OnDataProduced += emitted.Add;
         s470k.OnCollectModeDetected += detected.Add;
 
-        // 本次打印中 type1 是电导率、type2 是 pH，数据消息顺序也随之交换。
+        // 本次打印中 type1 是电导率、type2 是 pH，但协议顺序仍然是 1 后跟 2。
         s470k.ParseData("Measurement1");
         s470k.ParseData("Meas.type1 uS/cm   ?C");
         s470k.ParseData("Meas.type2 pH      ?C");
         s470k.ParseData("------------------------");
-        s470k.ParseData("5s 2  7.262   30.2");
-        s470k.ParseData("1  188.1   20.0");
+        s470k.ParseData("5s 1  188.1   20.0");
+        s470k.ParseData("2  7.262   30.2");
 
         Assert.AreEqual(CollectMode.PH_AND_COND, s470k.CurrentMode);
         CollectionAssert.AreEqual(new[] { CollectMode.PH_AND_COND }, detected);
@@ -95,18 +95,23 @@ public class S470KTests
         s470k.OnParseWarning += warnings.Add;
         s470k.OnDataProduced += emitted.Add;
 
-        s470k.ParseData("2 188.1 20.0");
-        s470k.ParseData("2 188.2 20.1");
-        s470k.ParseData("5s 1 7.262 30.2");
+        s470k.ParseData("Measurement1");
+        s470k.ParseData("Meas.type1 uS/cm   ?C");
+        s470k.ParseData("Meas.type2 pH      ?C");
+        s470k.ParseData("------------------------");
+        s470k.ParseData("5s 1 188.1 20.0");
+        s470k.ParseData("10s 1 188.2 20.1");
+        s470k.ParseData("2 7.262 30.2");
 
         Assert.AreEqual(1, warnings.Count);
         StringAssert.Contains(warnings[0], "上一条电导率尚未");
         Assert.AreEqual(1, emitted.Count);
         Assert.AreEqual(188.2, emitted[0].Conductivity);
+        Assert.AreEqual(10, emitted[0].Time);
     }
 
     [TestMethod]
-    public void ParsePhAndCond_CondWithoutPh_TriggersOnParseError()
+    public void ParsePhAndCond_Type2WithoutType1_TriggersOnParseError()
     {
         var s470k = new S470K { CurrentMode = CollectMode.PH_AND_COND };
         string? error = null;
@@ -115,7 +120,34 @@ public class S470KTests
         s470k.ParseData("2 1450.0");
 
         Assert.IsNotNull(error);
-        StringAssert.Contains(error, "电导率消息无配对 pH");
+        StringAssert.Contains(error, "2 号消息无配对的 1 号消息");
+    }
+
+    [TestMethod]
+    public void ParsePhAndCond_SwappedHeader_LeadingType2IsDroppedBeforeNextPair()
+    {
+        var s470k = new S470K();
+        var errors = new List<string>();
+        var emitted = new List<MeasureData>();
+        s470k.OnParseError += errors.Add;
+        s470k.OnDataProduced += emitted.Add;
+
+        s470k.ParseData("Measurement1");
+        s470k.ParseData("Meas.type1 uS/cm   ?C");
+        s470k.ParseData("Meas.type2 pH      ?C");
+        s470k.ParseData("------------------------");
+        s470k.ParseData("2 7.262 30.2");
+        s470k.ParseData("5s 1 188.1 20.0");
+        s470k.ParseData("2 7.268 30.2");
+
+        Assert.AreEqual(1, errors.Count);
+        StringAssert.Contains(errors[0], "2 号消息无配对的 1 号消息");
+        Assert.AreEqual(1, emitted.Count);
+        Assert.AreEqual(5, emitted[0].Time);
+        Assert.AreEqual(7.268, emitted[0].Ph);
+        Assert.AreEqual(188.1, emitted[0].Conductivity);
+        Assert.AreEqual(30.2, emitted[0].PhTemp);
+        Assert.AreEqual(20.0, emitted[0].ConductivityTemp);
     }
 
     [TestMethod]

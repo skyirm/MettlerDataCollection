@@ -295,11 +295,11 @@ namespace MettlerDataCollection.Device
         }
 
         /// <summary>
-        ///     双工模式解析：配对 pH 消息（带时间戳）和电导率消息（不带时间戳，借前一条 pH 的）。
+        ///     双工模式解析：消息必须按 1、2 的顺序配对，页眉决定每个编号对应 pH 还是电导率。
         ///     协议格式：
         ///     <list type="bullet">
-        ///         <item>pH 消息：<c>时间s 消息编号 pH值 pH温度</c></item>
-        ///         <item>电导率消息：<c>消息编号 电导率值 电导率温度</c></item>
+        ///         <item>1 号消息：<c>时间s 1 测量值 温度</c></item>
+        ///         <item>2 号消息：<c>2 测量值 温度</c></item>
         ///         <item>消息编号由双通道页眉中的 Meas.type1/2 实际类型决定。</item>
         ///     </list>
         /// </summary>
@@ -339,22 +339,28 @@ namespace MettlerDataCollection.Device
                 time = parsedTime;
 
             var pending = new PendingMeasurement(value, temperature, time);
-            if (messageType == _phMessageType)
+
+            if (messageType == "2" && _pendingPh is null && _pendingCond is null)
+            {
+                OnParseError?.Invoke($"2 号消息无配对的 1 号消息，已丢弃（line: {line}）");
+                return;
+            }
+
+            if (messageType == "1")
             {
                 if (_pendingPh is not null)
-                    OnParseWarning?.Invoke($"收到新的 pH 消息前，上一条 pH 尚未与电导率配对，已丢弃上一条（line: {line}）");
+                    OnParseWarning?.Invoke($"收到新的 1 号消息前，上一条 pH 尚未与电导率配对，已丢弃上一条（line: {line}）");
+                else if (_pendingCond is not null)
+                    OnParseWarning?.Invoke($"收到新的 1 号消息前，上一条电导率尚未与 pH 配对，已丢弃上一条（line: {line}）");
+
+                _pendingPh = null;
+                _pendingCond = null;
+            }
+
+            if (messageType == _phMessageType)
                 _pendingPh = pending;
-            }
             else
-            {
-                // 兼容原有协议约定：默认 2=电导率时，孤立的电导率消息仍提示未配对。
-                // 若页眉声明了反向编号，则允许电导率先到，等待后续 pH 消息再合并。
-                if (_condMessageType == "2" && _pendingPh is null)
-                    OnParseError?.Invoke($"电导率消息无配对 pH（line: {line}）");
-                if (_pendingCond is not null)
-                    OnParseWarning?.Invoke($"收到新的电导率消息前，上一条电导率尚未与 pH 配对，已丢弃上一条（line: {line}）");
                 _pendingCond = pending;
-            }
 
             TryEmitCombinedData();
         }
