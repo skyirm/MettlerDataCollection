@@ -5,6 +5,7 @@ using System.IO.Ports;
 using System.Text;
 using System.Threading;
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Threading;
 using MettlerDataCollection.Device;
 using MettlerDataCollection.Properties;
@@ -39,6 +40,7 @@ public partial class MainWindow : Window, IDisposable
 
     private volatile int _dataCount;
     private volatile bool _isCollecting;
+    private bool _isPlotDragging;
     private DataLogger _conductivityLogger;
 
     private DataLogger _phLogger;
@@ -224,8 +226,35 @@ public partial class MainWindow : Window, IDisposable
     private void InitPlotUserInput()
     {
         MainPlot.PreviewMouseWheel += (_, _) => OnPlotUserInteraction();
-        MainPlot.PreviewMouseDown += (_, _) => OnPlotUserInteraction();
-        MainPlot.PreviewMouseMove += (_, _) => OnPlotUserInteraction();
+        MainPlot.PreviewMouseDoubleClick += (_, _) => OnPlotUserInteraction();
+        MainPlot.PreviewMouseMove += (_, e) =>
+        {
+            if (e.LeftButton != MouseButtonState.Pressed &&
+                e.MiddleButton != MouseButtonState.Pressed &&
+                e.RightButton != MouseButtonState.Pressed)
+                return;
+
+            _isPlotDragging = true;
+            OnPlotUserInteraction();
+        };
+        MainPlot.PreviewMouseUp += (_, e) =>
+        {
+            if (!_isPlotDragging ||
+                e.ChangedButton is not (MouseButton.Left or MouseButton.Middle or MouseButton.Right))
+                return;
+
+            _isPlotDragging = e.LeftButton == MouseButtonState.Pressed ||
+                              e.MiddleButton == MouseButtonState.Pressed ||
+                              e.RightButton == MouseButtonState.Pressed;
+            OnPlotUserInteraction();
+        };
+        MainPlot.LostMouseCapture += (_, _) =>
+        {
+            if (!_isPlotDragging) return;
+
+            _isPlotDragging = false;
+            OnPlotUserInteraction();
+        };
     }
 
     private void OnPlotUserInteraction()
@@ -237,6 +266,7 @@ public partial class MainWindow : Window, IDisposable
     /// <summary>判断当前是否处于"用户视图"保护期。</summary>
     private bool IsInUserViewWindow()
     {
+        if (_isPlotDragging) return true;
         if (_lastUserInteraction is null) return false;
         return (DateTime.Now - _lastUserInteraction.Value).TotalSeconds < UserViewIdleSeconds;
     }
@@ -278,6 +308,12 @@ public partial class MainWindow : Window, IDisposable
     /// <summary>底栏提示"用户视图（X秒后自动恢复）"，没交互或已回归时清空。</summary>
     private void UpdateUserViewHint()
     {
+        if (_isPlotDragging)
+        {
+            UserViewHint.Content = "用户视图（拖动中）";
+            return;
+        }
+
         if (_lastUserInteraction is null)
         {
             UserViewHint.Content = string.Empty;
@@ -295,6 +331,13 @@ public partial class MainWindow : Window, IDisposable
             var remain = (int)Math.Ceiling(UserViewIdleSeconds - elapsed);
             UserViewHint.Content = $"用户视图（{remain}s 后自动恢复）";
         }
+    }
+
+    private void ResetPlotUserInteraction()
+    {
+        _isPlotDragging = false;
+        _lastUserInteraction = null;
+        UserViewHint.Content = string.Empty;
     }
 
     /// <summary>
@@ -421,7 +464,7 @@ public partial class MainWindow : Window, IDisposable
         _phLogger.Clear();
         _conductivityLogger.Clear();
         dataCountLabel.Content = "已接收数据: 0个";
-        _lastUserInteraction = null; // 开始新一轮：清掉用户视图状态，让定时器立即应用选中模式
+        ResetPlotUserInteraction(); // 开始新一轮：清掉用户视图状态，让定时器立即应用选中模式
         _dispatcherTimer.Start();
         _persistenceService.StartNewFile(_sampleNo);
         MainPlot.Refresh();
@@ -436,6 +479,7 @@ public partial class MainWindow : Window, IDisposable
         _isCollecting = false;
         Log.Information("数据采集停止。");
         _dispatcherTimer.Stop();
+        ResetPlotUserInteraction();
         UpdateUiState(UiState.PortOpened);
     }
 
@@ -567,6 +611,7 @@ public partial class MainWindow : Window, IDisposable
         {
             _isCollecting = false;
             _dispatcherTimer.Stop();
+            ResetPlotUserInteraction();
 
             if (_serialPort.IsOpen)
             {
