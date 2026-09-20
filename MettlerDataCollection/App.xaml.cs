@@ -176,21 +176,24 @@ public partial class App : Application
         }
     }
 
-    /// <summary>Task 线程未观察到的异常（async/await 路径漏 try/catch 的）。</summary>
+    /// <summary>
+    ///     记录已进入终结器阶段的未观察 Task 异常。
+    ///     此事件无法可靠地对应当前用户操作，也不应从终结器线程弹 UI。
+    /// </summary>
     private void TaskScheduler_UnobservedTaskException(object? sender, UnobservedTaskExceptionEventArgs e)
     {
+        // 先标记已观察，保证后续即使日志组件异常也不会让该异常再次升级。
+        e.SetObserved();
+
         try
         {
-            Exception ex = e.Exception;
-            Log.Error(ex.Message);
-            MessageBox.Show("应用程序发生Task线程异常: " + ex.Message,
-                "应用程序错误", MessageBoxButton.OK, MessageBoxImage.Error);
-            e.SetObserved(); // 标记已观察，避免 .NET 终止进程
+            // Debug 仍会写入文件，但不会进入 Warning+ 的 UI 错误抽屉并触发弹窗。
+            // 传入异常对象而非 Message，保留内部异常和完整调用栈，便于定位来源。
+            Log.Debug(e.Exception.Flatten(), "检测到未观察的 Task 异常，已记录并继续运行");
         }
-        catch (Exception ex)
+        catch
         {
-            MessageBox.Show("异常处理发生错误: " + ex.Message, "致命错误",
-                MessageBoxButton.OK, MessageBoxImage.Error);
+            // 全局异常处理器本身不能再向外抛异常。
         }
     }
 }
