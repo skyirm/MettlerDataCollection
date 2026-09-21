@@ -41,15 +41,16 @@ public partial class MainWindow : Window, IDisposable
     private volatile int _dataCount;
     private volatile bool _isCollecting;
     private bool _isPlotDragging;
+    private UiState _uiState = UiState.Initial;
     private DataLogger _conductivityLogger;
 
     private DataLogger _phLogger;
     private string _sampleNo = string.Empty;
     private LegendItem _timeLegendItem;
 
-    /// <summary>用户在 plot 上最后一次鼠标活动的时间。null 表示"没交互过 / 已回归"，
-    /// 此时定时器按 UI 选中模式更新视图；非 null 且距 now &lt; UserViewIdleSeconds 表示
-    /// "用户视图"期间，定时器只 Refresh 不动 axis。</summary>
+    /// <summary>用户在 plot 上最后一次鼠标活动的时间。null 表示自动缩放状态；
+    /// 非 null 且距 now &lt; UserViewIdleSeconds 表示“用户视图”期间，
+    /// 定时器只刷新曲线而不调整坐标轴。</summary>
     private DateTime? _lastUserInteraction;
 
     public MainWindow(IDataPersistenceService persistenceService, IDevice device)
@@ -79,9 +80,6 @@ public partial class MainWindow : Window, IDisposable
 
         InitPlot();
         InitPlotUserInput();
-        // 切换"全部/最新"时立即应用新模式，跳过 5s 用户视图保护期
-        showFull.Checked += (_, _) => _lastUserInteraction = null;
-        showSlide.Checked += (_, _) => _lastUserInteraction = null;
         InitSerialPort();
 
         // UI 状态机初始化：让代码主导 UI 状态，XAML 只管布局
@@ -209,9 +207,8 @@ public partial class MainWindow : Window, IDisposable
         _phLogger.LegendText = "Current pH: 0";
         _conductivityLogger.LegendText = "Current Cond: 0";
 
-        // 关闭 X 轴自动扩轴：ViewSlide 在 WasRendered=false 时会用 data range 覆盖 axis，
-        // 导致窗口不滑动。我们自己手动控制 X 轴（见 DispatcherTimerTick.ApplyLatestWindow），
-        // 所以这里关掉自动管理。
+        // 坐标轴由“自动缩放”按钮和 5 秒闲置恢复逻辑统一控制。
+        // 关闭 DataLogger 自动管理，避免用户拖动或缩放时视图被立即覆盖。
         _phLogger.ManageAxisLimits = false;
         _conductivityLogger.ManageAxisLimits = false;
 
@@ -287,19 +284,9 @@ public partial class MainWindow : Window, IDisposable
 
     private void DispatcherTimerTick(object? sender, EventArgs e)
     {
-        // 用户视图保护期：用户在 plot 上最近交互过，5s 内不覆盖其视图
+        // 用户停止操作 5 秒后，自动恢复为适配全部数据的视图。
         if (!IsInUserViewWindow())
-        {
-            if (showFull.IsChecked == true)
-            {
-                _phLogger.ViewFull();
-                _conductivityLogger.ViewFull();
-            }
-            else if (showSlide.IsChecked == true)
-            {
-                ApplyLatestWindow(200);
-            }
-        }
+            AutoScalePlot();
 
         UpdateUserViewHint();
         MainPlot.Refresh();
@@ -323,7 +310,7 @@ public partial class MainWindow : Window, IDisposable
         var elapsed = (DateTime.Now - _lastUserInteraction.Value).TotalSeconds;
         if (elapsed >= UserViewIdleSeconds)
         {
-            // 倒计时到，下次 timer tick 会真正回归 UI 选中的模式
+            // 倒计时到，下次 timer tick 会自动适配全部数据。
             UserViewHint.Content = string.Empty;
         }
         else
@@ -340,24 +327,27 @@ public partial class MainWindow : Window, IDisposable
         UserViewHint.Content = string.Empty;
     }
 
-    /// <summary>
-    ///     把 X 轴设成"最近 width 秒"窗口。pH 和电导率 logger 共享同一时间轴，只需设一次。
-    ///     不用 <see cref="DataLogger.ViewSlide" />：它在 WasRendered=false 时会用 data range
-    ///     覆盖 axis，导致窗口卡在 data range 不滑动（每 tick 调一次更明显）。
-    /// </summary>
-    private void ApplyLatestWindow(double width)
+    private void AutoScalePlot()
     {
-        var coords = _phLogger.Data.Coordinates;
-        if (coords.Count == 0) return;
-        var latestX = coords[coords.Count - 1].X;
-        var xAxis = MainPlot.Plot.Axes.Bottom;
-        xAxis.Min = latestX - width;
-        xAxis.Max = latestX;
+        _phLogger.ViewFull();
+        _conductivityLogger.ViewFull();
+    }
+
+    private void Button_AutoScale(object sender, RoutedEventArgs e)
+    {
+        ResetPlotUserInteraction();
+        AutoScalePlot();
+        MainPlot.Refresh();
     }
 
     private void HandleComPortsChanged(List<string> list)
     {
-        Dispatcher.Invoke(() => { ComportCombox.ItemsSource = new ObservableCollection<string>(list); });
+        Dispatcher.Invoke(() =>
+        {
+            ComportCombox.ItemsSource = new ObservableCollection<string>(list);
+            if (_uiState == UiState.Initial)
+                UpdateOperationHint(_uiState, list.Count > 0);
+        });
     }
 
     private void SerialPort_DataReceived(object sender, SerialDataReceivedEventArgs e)
@@ -464,7 +454,7 @@ public partial class MainWindow : Window, IDisposable
         _phLogger.Clear();
         _conductivityLogger.Clear();
         dataCountLabel.Content = "已接收数据: 0个";
-        ResetPlotUserInteraction(); // 开始新一轮：清掉用户视图状态，让定时器立即应用选中模式
+        ResetPlotUserInteraction(); // 开始新一轮时立即恢复自动缩放状态
         _dispatcherTimer.Start();
         _persistenceService.StartNewFile(_sampleNo);
         MainPlot.Refresh();
@@ -730,6 +720,8 @@ public partial class MainWindow : Window, IDisposable
 
     private void UpdateUiState(UiState state)
     {
+        _uiState = state;
+
         switch (state)
         {
             case UiState.Initial:
@@ -754,6 +746,24 @@ public partial class MainWindow : Window, IDisposable
                 ComportCombox.IsEnabled = false;
                 break;
         }
+
+        UpdateOperationHint(state);
+    }
+
+    private void UpdateOperationHint(UiState state, bool? hasPorts = null)
+    {
+        OperationHintText.Text = state switch
+        {
+            UiState.Initial when !(hasPorts ?? ComportCombox.Items.Count > 0) =>
+                "未检测到串口。请连接并开启设备；如仍为空，请检查 USB 转串口驱动。",
+            UiState.Initial =>
+                "选择与 S470 相连的端口，然后点击“连接”。不确定端口时可先使用菜单中的“测试连接”。",
+            UiState.PortOpened =>
+                "连接成功。确认仪器已停止上一轮实验，选择采集模式后点击“开始采集”。",
+            UiState.Collecting =>
+                "正在采集。请在 S470 上启动间隔测量并启用“间隔后打印”；切换实验前先停止采集。",
+            _ => string.Empty,
+        };
     }
 
     protected virtual void Dispose(bool disposing)
