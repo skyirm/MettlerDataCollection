@@ -94,30 +94,9 @@
                         <TextBlock Text="• 滚轮 + Ctrl：仅缩放 X 轴" FontSize="13" Foreground="#333" />
                         <TextBlock Text="• 滚轮 + Shift：仅缩放 Y 轴" FontSize="13" Foreground="#333" />
                         <TextBlock Text="• 左键拖动：平移视图" FontSize="13" Foreground="#333" />
-                        <TextBlock Text="• 右键拖动：框选缩放" FontSize="13" Foreground="#333" />
-                        <TextBlock Text="• 中键拖动：轴向缩放" FontSize="13" Foreground="#333" />
-                        <TextBlock Text="• 双击：自动适配数据范围" FontSize="13" Foreground="#333" />
+                        <TextBlock Text="• 中键拖动：框选缩放" FontSize="13" Foreground="#333" />
+                        <TextBlock Text="• 右键拖动：缩放视图" FontSize="13" Foreground="#333" />
                         <TextBlock Text="• 点击 &quot;自动缩放&quot;：立即让坐标轴适配当前全部数据" FontSize="13" Foreground="#333" />
-                    </StackPanel>
-                </Border>
-
-                <!-- 5.2 5 秒闲置自动缩放 -->
-                <Border BorderBrush="#E0E0E0" BorderThickness="1" CornerRadius="5"
-                        Padding="12" Margin="0,0,0,14" Background="#FCFCFC">
-                    <StackPanel>
-                        <TextBlock Text="5 秒闲置自动缩放" FontSize="13" FontWeight="Bold" Foreground="#555" Margin="0,0,0,6" />
-                        <TextBlock Text="做视图操作后，连续 5 秒不操作，坐标轴会自动适配全部数据（底栏会显示倒计时）："
-                                   FontSize="13" Foreground="#333" TextWrapping="Wrap" Margin="0,0,0,6" />
-                        <TextBlock Text="• 滚轮缩放 / 拖动：视图跟手，底栏显示" FontSize="13" Foreground="#333" />
-                        <TextBlock Text="  &quot;用户视图（5s 后自动恢复）&quot; 倒计时"
-                                   FontSize="13" Foreground="#333" Margin="0,0,0,4" />
-                        <TextBlock Text="• 拖动中：倒计时停在 5s，不会被弹回" FontSize="13" Foreground="#333" Margin="0,0,0,4" />
-                        <TextBlock Text="• 5s 内不操作：倒计时结束后自动缩放到全部数据范围"
-                                   FontSize="13" Foreground="#333" Margin="0,0,0,4" />
-                        <TextBlock Text="• 点击 &quot;自动缩放&quot;：跳过倒计时，立即适配全部数据"
-                                   FontSize="13" Foreground="#333" Margin="0,0,0,4" />
-                        <TextBlock Text="• 开始新一轮采集时会重置视图状态，继续按自动缩放方式显示"
-                                   FontSize="13" Foreground="#333" />
                     </StackPanel>
                 </Border>
 

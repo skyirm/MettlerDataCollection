@@ -40,14 +40,14 @@ public class DataPersistenceService : IDataPersistenceService
         }
     }
 
-    public void StartNewFile(string sampleNo)
+    public void StartNewFile(string deviceModel, string sampleNo)
     {
         lock (_fileLock)
         {
             CloseFileUnsafe();
 
             var timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
-            _currentFilePath = Path.Combine(_basePath, $"{timestamp}-{sampleNo}.txt");
+            _currentFilePath = Path.Combine(_basePath, $"{timestamp}-{deviceModel}-{sampleNo}.txt");
 
             // FileMode.Append: 不存在则创建，存在则追加（理论上不会撞名，但保险起见）
             _stream = new FileStream(

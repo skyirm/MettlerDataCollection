@@ -15,8 +15,9 @@ public interface IDataPersistenceService
     ///     开始一个新的样本数据文件。如果已有打开的文件，会先关闭。
     ///     文件存放在 <see cref="IDataPersistenceService" /> 构造时指定的目录。
     /// </summary>
+    /// <param name="deviceModel">当前设备型号，会写入文件名。</param>
     /// <param name="sampleNo">样品编号，会作为文件名后缀。</param>
-    void StartNewFile(string sampleNo);
+    void StartNewFile(string deviceModel, string sampleNo);
 
     /// <summary>
     ///     写入一条原始记录。实现会加上时间戳前缀。

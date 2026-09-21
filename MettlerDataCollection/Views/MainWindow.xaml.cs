@@ -292,7 +292,6 @@ public partial class MainWindow : Window, IDisposable
         MainPlot.Refresh();
     }
 
-    /// <summary>底栏提示"用户视图（X秒后自动恢复）"，没交互或已回归时清空。</summary>
     private void UpdateUserViewHint()
     {
         if (_isPlotDragging)
@@ -310,14 +309,12 @@ public partial class MainWindow : Window, IDisposable
         var elapsed = (DateTime.Now - _lastUserInteraction.Value).TotalSeconds;
         if (elapsed >= UserViewIdleSeconds)
         {
-            // 倒计时到，下次 timer tick 会自动适配全部数据。
             UserViewHint.Content = string.Empty;
+            return;
         }
-        else
-        {
-            var remain = (int)Math.Ceiling(UserViewIdleSeconds - elapsed);
-            UserViewHint.Content = $"用户视图（{remain}s 后自动恢复）";
-        }
+
+        var remaining = (int)Math.Ceiling(UserViewIdleSeconds - elapsed);
+        UserViewHint.Content = $"用户视图（{remaining}s 后自动恢复）";
     }
 
     private void ResetPlotUserInteraction()
@@ -456,7 +453,7 @@ public partial class MainWindow : Window, IDisposable
         dataCountLabel.Content = "已接收数据: 0个";
         ResetPlotUserInteraction(); // 开始新一轮时立即恢复自动缩放状态
         _dispatcherTimer.Start();
-        _persistenceService.StartNewFile(_sampleNo);
+        _persistenceService.StartNewFile(_device.Name, _sampleNo);
         MainPlot.Refresh();
         _dataCount = 0;
         _isCollecting = true;

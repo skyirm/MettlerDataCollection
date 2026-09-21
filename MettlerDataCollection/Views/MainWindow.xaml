@@ -58,7 +58,8 @@
                     Click="Button_StopCollect" ToolTip="停止更新曲线；已接收的原始数据仍保存在数据目录。" />
             <Border Width="1" Background="Gray" Margin="2,2" VerticalAlignment="Stretch" />
             <Button Content="自动缩放" MinWidth="72" Margin="2,0,2,0" Click="Button_AutoScale"
-                    ToolTip="立即让坐标轴适配当前全部数据；手动调整视图后 5 秒也会自动执行。" />
+                    ToolTip="让坐标轴立即适配当前全部数据。" />
+            <Border Width="1" Background="Gray" Margin="2,2" VerticalAlignment="Stretch" />
             <Button Content="导出数据" MinWidth="60" Margin="2,0,2,0" Click="Button_ExportData"
                     ToolTip="将当前曲线数据导出为文本文件。" />
         </WrapPanel>
@@ -71,31 +72,14 @@
                            VerticalAlignment="Center" />
             </DockPanel>
         </Border>
-        <Grid Grid.Row="3" Margin="3">
-            <scottPlot:WpfPlot Height="auto" x:Name="MainPlot"
-                               ToolTip="滚轮缩放，左键拖动平移，双击自动适配；停止操作 5 秒后自动缩放。" />
-            <Border HorizontalAlignment="Left" VerticalAlignment="Top"
-                    MaxWidth="430" Margin="12,10,0,0" Padding="9,6"
-                    Background="#E8FFFFFF" BorderBrush="#B8C6D1" BorderThickness="1"
-                    CornerRadius="4" IsHitTestVisible="False">
-                <StackPanel>
-                    <TextBlock Text="图表操作" FontWeight="SemiBold" Foreground="#334155"
-                               Margin="0,0,0,3" />
-                    <TextBlock Foreground="#526170" FontSize="12" TextWrapping="Wrap"
-                               Text="左键拖动：平移　滚轮：缩放　右键拖动：框选缩放　双击：自动适配" />
-                    <TextBlock Foreground="#6B7785" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap"
-                               Text="Ctrl + 滚轮：仅缩放 X 轴　Shift + 滚轮：仅缩放 Y 轴" />
-                    <TextBlock Foreground="#6B7785" FontSize="11" Margin="0,2,0,0" TextWrapping="Wrap"
-                               Text="停止操作 5 秒后自动缩放" />
-                </StackPanel>
-            </Border>
-        </Grid>
+        <scottPlot:WpfPlot Grid.Row="3" Margin="3" Height="auto" x:Name="MainPlot"
+                           ToolTip="左键平移，中键框选，右键缩放。" />
         <StackPanel Grid.Row="4" Height="auto" Orientation="Horizontal" Margin="2" VerticalAlignment="Center">
-            <Label x:Name="ComportLabel" Content="等待连接" Margin="5,0,0,0" VerticalAlignment="Center" />
-            <Label x:Name="SampleNoLabel" Content="样品编号：" Margin="5,0,0,0" VerticalAlignment="Center" />
+            <Label x:Name="ComportLabel" Content="等待连接" Margin="2,0" VerticalAlignment="Center" />
+            <Label x:Name="SampleNoLabel" Content="样品编号：" Margin="2,0" VerticalAlignment="Center" />
             <Button Content="修改编号" Margin="5,2,0,2" Click="Button_ModifySampleNo" VerticalAlignment="Center" />
-            <Label x:Name="dataCountLabel" VerticalAlignment="Center" />
-            <Label x:Name="UserViewHint" VerticalAlignment="Center" Foreground="Gray" />
+            <Label x:Name="dataCountLabel" Margin="2,0" VerticalAlignment="Center" />
+            <Label x:Name="UserViewHint" Margin="2,0" VerticalAlignment="Center" Foreground="Gray" />
         </StackPanel>
         <controls:ErrorLog Grid.Row="4" x:Name="ErrorLog" HorizontalAlignment="Right"
                            Margin="0,2,8,2" VerticalAlignment="Center" />
